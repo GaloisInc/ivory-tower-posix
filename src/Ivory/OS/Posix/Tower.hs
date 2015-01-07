@@ -6,6 +6,7 @@ module Ivory.OS.Posix.Tower (
   posix
 ) where
 
+import Data.List
 import qualified Data.Map as Map
 import Ivory.Artifact
 import Ivory.Language
@@ -106,4 +107,15 @@ systemModules twr = [initModule]
     retVoid
 
 systemArtifacts :: AST.Tower -> [Module] -> [Artifact]
-systemArtifacts _ _ = []
+systemArtifacts _twr modules = [makefile]
+  where
+  makefile = artifactString "Makefile" $ unlines
+    [ "CC = gcc"
+    , "CFLAGS = -Wall -std=c99 -Og -g -I. -DIVORY_TEST"
+    , "LDLIBS = -lm"
+    , "OBJS = " ++ intercalate " " [ moduleName m ++ ".o" | m <- modules ]
+    , "main: $(OBJS)"
+    , "clean:"
+    , "\t-rm -f $(OBJS)"
+    , ".PHONY: clean"
+    ]
