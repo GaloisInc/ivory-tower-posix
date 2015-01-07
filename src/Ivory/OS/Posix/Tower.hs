@@ -14,6 +14,7 @@ import Ivory.OS.Posix.Tower.EventLoop
 import qualified Ivory.Tower.AST as AST
 import Ivory.Tower.Codegen.Handler
 import Ivory.Tower.Types.GeneratedCode
+import Ivory.Tower.Types.MonitorCode
 import Ivory.Tower.Types.ThreadCode
 import Ivory.Tower.Types.Time
 import qualified Ivory.Tower.Types.TowerPlatform as T
@@ -30,6 +31,11 @@ posix e = T.TowerPlatform
 gcDeps :: GeneratedCode -> ModuleDef
 gcDeps = mapM_ depend . generatedcode_depends
 
+threadMonitorDeps :: AST.Tower -> AST.Thread -> (AST.Monitor -> String) -> ModuleDef
+threadMonitorDeps twr t mname = sequence_
+  [ depend $ package (mname m) $ return ()
+  | (m,_) <- AST.threadHandlers (AST.messageGraph twr) t ]
+
 threadModules :: GeneratedCode -> AST.Tower-> [Module]
 threadModules gc twr = concatMap pertask $ Map.elems $ generatedcode_threads gc
   where
@@ -38,6 +44,7 @@ threadModules gc twr = concatMap pertask $ Map.elems $ generatedcode_threads gc
     threadUserModule = package (AST.threadUserCodeModName $ threadcode_thread tc) $ do
       gcDeps gc
       depend threadGenModule
+      threadMonitorDeps twr (threadcode_thread tc) monitorStateModName
       threadcode_user tc
     threadGenModule = package (AST.threadGenCodeModName $ threadcode_thread tc) $ do
       gcDeps gc
@@ -79,6 +86,7 @@ threadModdef gc twr thd@(AST.SignalThread s) = do
         loop <- call ev_default_loop 0
         now <- call ev_now loop
         threadLoopRunHandlers twr thd now
+  incl cb
   unGeneratedSignal (generatedCodeForSignal s gc) $ call_ cb
 threadModdef gc twr thd@(AST.InitThread _) = do
   incl $ proc (AST.threadLoopProcName thd) $ body $ do
@@ -86,8 +94,15 @@ threadModdef gc twr thd@(AST.InitThread _) = do
     threadLoopRunHandlers twr thd 0
     retVoid
 
+monitorStateModName :: AST.Monitor -> String
+monitorStateModName mon = "tower_state_monitor_" ++ AST.monitorName mon
+
 monitorModules :: GeneratedCode -> AST.Tower -> [Module]
-monitorModules _ _ = []
+monitorModules gc _twr = map permon $ Map.toList $ generatedcode_monitors gc
+  where
+  permon (ast, code) = package (monitorStateModName ast) $ do
+    gcDeps gc
+    monitorcode_moddef code
 
 systemModules :: AST.Tower -> [Module]
 systemModules twr = [initModule]
