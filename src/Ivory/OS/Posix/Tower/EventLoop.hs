@@ -31,6 +31,9 @@ ev_now = importProc "ev_now" ev_header
 ev_run :: Def ('[Ref s (Struct "ev_loop"), Sint32] :-> IBool)
 ev_run = importProc "ev_run" ev_header
 
+ev_break :: Def ('[Ref s (Struct "ev_loop"), Sint32] :-> ())
+ev_break = importProc "ev_break" ev_header
+
 type CallbackPtr s2 s3 watcher = ProcPtr ('[Ref s2 (Struct "ev_loop"), Ref s3 (Struct watcher), Uint32] :-> ())
 
 ev_timer_init :: Def ('[Ref s1 (Struct "ev_timer"), CallbackPtr s2 s3 "ev_timer", IDouble, IDouble] :-> ())
