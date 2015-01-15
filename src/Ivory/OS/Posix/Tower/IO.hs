@@ -21,15 +21,15 @@ readFD name fd = do
   sig <- signal (watchIO name fd ReadOnly) (us 0)
 
   monitor name $ do
-    let read :: Def ('[FD, Ref s (Array 512 (Stored Uint8)), Uint32] :-> Sint32)
-        read = importProc "read" "unistd.h"
-    monitorModuleDef $ incl read
+    let readFd :: Def ('[FD, Ref s (Array 512 (Stored Uint8)), Uint32] :-> Sint32)
+        readFd = importProc "readFd" "unistd.h"
+    monitorModuleDef $ incl readFd
 
     handler sig "readable" $ do
       target <- emitter sink 512
       callback $ const $ do
         buf <- local (izero :: Init (Array 512 (Stored Uint8)))
-        got <- call read fd buf (arrayLen buf)
+        got <- call readFd fd buf (arrayLen buf)
         ifte_ (got <=? 0)
           (do
             loop <- call ev_default_loop 0
