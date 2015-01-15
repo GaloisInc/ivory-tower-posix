@@ -14,8 +14,14 @@ create-sandbox:
 	cabal sandbox add-source $(TOWER_REPO)/tower
 	cabal install --dependencies-only
 
+.PHONY: test
+test:
+	./dist/build/test/test
+
 clean:
 	-rm -rf dist
+	-rm -rf simpletower-out
+	-rm -rf simpletower2-out
 
 clean-sandbox: clean
 	-rm -rf .cabal-sandbox
