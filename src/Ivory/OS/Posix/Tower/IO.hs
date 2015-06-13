@@ -11,9 +11,9 @@ import Ivory.OS.Posix.Tower.Signal
 type FD = Sint32
 
 stdin, stdout, stderr :: FD
-stdin = extern "STDIN_FILENO"
-stdout = extern "STDOUT_FILENO"
-stderr = extern "STDERR_FILENO"
+stdin = extern "STDIN_FILENO" "unistd.h"
+stdout = extern "STDOUT_FILENO" "unistd.h"
+stderr = extern "STDERR_FILENO" "unistd.h"
 
 readFD :: String -> FD -> Tower e (ChanOutput (Stored Uint8))
 readFD name fd = do
@@ -33,7 +33,7 @@ readFD name fd = do
         ifte_ (got <=? 0)
           (do
             loop <- call ev_default_loop 0
-            call_ ev_break loop $ extern "EVBREAK_ALL"
+            call_ ev_break loop $ extern "EVBREAK_ALL" ev_header
           ) (do
             for (toIx got) $ \ i -> do
               emit target $ constRef buf ! i

@@ -17,10 +17,10 @@ abstract struct ev_io "ev.h"
 |]
 
 ev_READ, ev_WRITE, ev_TIMER, ev_ERROR :: Uint32
-ev_READ = extern "EV_READ"
-ev_WRITE = extern "EV_WRITE"
-ev_TIMER = extern "EV_TIMER"
-ev_ERROR = extern "EV_ERROR"
+ev_READ = extern "EV_READ" ev_header
+ev_WRITE = extern "EV_WRITE" ev_header
+ev_TIMER = extern "EV_TIMER" ev_header
+ev_ERROR = extern "EV_ERROR" ev_header
 
 ev_default_loop :: Def ('[Uint32] :-> Ref s (Struct "ev_loop"))
 ev_default_loop = importProc "ev_default_loop" ev_header
