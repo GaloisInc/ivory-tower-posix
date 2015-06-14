@@ -1,136 +1,218 @@
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
 
 module Ivory.OS.Posix.Tower (
-  posix
+  compileTowerPosix
 ) where
 
+import Control.Monad (forM_)
 import Data.List
 import qualified Data.Map as Map
+import Data.Maybe
+import Data.Monoid
 import Ivory.Artifact
+import Ivory.Compile.C.CmdlineFrontend (runCompiler)
 import Ivory.Language
 import Ivory.OS.Posix.Tower.EventLoop
+import Ivory.Stdlib.Control
+import Ivory.Tower
 import qualified Ivory.Tower.AST as AST
-import Ivory.Tower.Codegen.Handler
-import Ivory.Tower.Types.GeneratedCode
-import Ivory.Tower.Types.MonitorCode
-import Ivory.Tower.Types.ThreadCode
-import Ivory.Tower.Types.Time
-import qualified Ivory.Tower.Types.TowerPlatform as T
+import Ivory.Tower.Backend
+import Ivory.Tower.Options
+import Ivory.Tower.Types.Dependencies
+import Ivory.Tower.Types.Emitter
 
-posix :: e -> T.TowerPlatform e
-posix e = T.TowerPlatform
-  { T.threadModules = threadModules
-  , T.monitorModules = monitorModules
-  , T.systemModules = systemModules
-  , T.systemArtifacts = systemArtifacts
-  , T.platformEnv = e
+data MonitorCode = MonitorCode
+  { monitorGenCode :: ModuleDef
+  , monitorUserCode :: ModuleDef
   }
 
-gcDeps :: GeneratedCode -> ModuleDef
-gcDeps = mapM_ depend . generatedcode_depends
+instance Monoid MonitorCode where
+  mempty = MonitorCode mempty mempty
+  mappend a b = MonitorCode
+    { monitorGenCode = monitorGenCode a >> monitorGenCode b
+    , monitorUserCode = monitorUserCode a >> monitorUserCode b
+    }
 
-threadMonitorDeps :: AST.Tower -> AST.Thread -> (AST.Monitor -> String) -> ModuleDef
-threadMonitorDeps twr t mname = sequence_
-  [ depend $ package (mname m) $ return ()
-  | (m,_) <- AST.threadHandlers (AST.messageGraph twr) t ]
+data EmitterCode = EmitterCode
+  { emitterInit :: forall eff. Ivory eff ()
+  , emitterDeliver :: forall eff. Ivory eff ()
+  , emitterRecipients :: [Unique]
+  , emitterCode :: ModuleDef
+  }
 
-threadModules :: GeneratedCode -> AST.Tower-> [Module]
-threadModules gc twr = concatMap pertask $ Map.elems $ generatedcode_threads gc
-  where
-  pertask tc = [threadUserModule, threadGenModule]
+data PosixBackend = PosixBackend
+
+instance TowerBackend PosixBackend where
+  newtype TowerBackendCallback PosixBackend a = PosixCallback (forall s. (Def ('[ConstRef s a] :-> ()), ModuleDef))
+  newtype TowerBackendEmitter PosixBackend = PosixEmitter (Maybe EmitterCode)
+  data TowerBackendHandler PosixBackend a = PosixHandler
+    { handlerAST :: AST.Handler
+    , handlerRecipients :: [Unique]
+    , handlerProc :: forall s. Def ('[ConstRef s a] :-> ())
+    , handlerCode :: MonitorCode
+    }
+  newtype TowerBackendMonitor PosixBackend = PosixMonitor
+    (Dependencies -> Map.Map Unique Module -> (Map.Map Unique Module, [Module]))
+  newtype TowerBackendOutput PosixBackend = PosixOutput [TowerBackendMonitor PosixBackend]
+
+  callbackImpl _ ast f = PosixCallback $
+    let p = proc (showUnique ast) $ \ r -> body $ noReturn $ f r
+    in (p, incl p)
+
+  emitterImpl _ _ [] = (Emitter $ const $ return (), PosixEmitter Nothing)
+  emitterImpl _ ast handlers =
+    ( Emitter $ call_ $ eproc messageAt
+    , PosixEmitter $ Just EmitterCode
+        { emitterInit = store (addrOf messageCount) 0
+        , emitterDeliver = do
+            mc <- deref (addrOf messageCount)
+            forM_ (zip messages [0..]) $ \ (m, index) ->
+              when (fromInteger index <? mc) $
+                forM_ handlers $ \ h ->
+                  call_ (handlerProc h) (constRef (addrOf m))
+        , emitterRecipients = map (AST.handler_name . handlerAST) handlers
+        , emitterCode = do
+            incl $ eproc messageAt
+            private $ do
+              mapM_ defMemArea messages
+              defMemArea messageCount
+        }
+    )
     where
-    threadUserModule = package (AST.threadUserCodeModName $ threadcode_thread tc) $ do
-      gcDeps gc
-      depend threadGenModule
-      threadMonitorDeps twr (threadcode_thread tc) monitorStateModName
-      threadcode_user tc
-    threadGenModule = package (AST.threadGenCodeModName $ threadcode_thread tc) $ do
-      gcDeps gc
-      depend threadUserModule
-      threadModdef gc twr $ threadcode_thread tc
-      threadcode_gen tc
+    max_messages = AST.emitter_bound ast - 1
+    messageCount :: MemArea (Stored Uint32)
+    messageCount = area (named "message_count") Nothing
 
-threadLoopRunHandlers :: (GetAlloc eff ~ Scope s)
-                      => AST.Tower -> AST.Thread
-                      -> IDouble -> Ivory eff ()
-threadLoopRunHandlers twr thr t = do
-  t_ptr <- local $ ival $ fromIMicroseconds (castDefault $ t * 1e6 :: Sint64)
-  sequence_
-    [ call_ (hproc h) (constRef t_ptr)
-    | (_m,h) <- AST.towerChanHandlers twr (AST.threadChan thr) ]
-  where
-  hproc :: AST.Handler -> Def ('[ConstRef s (Stored ITime)] :-> ())
-  hproc h = proc (handlerProcName h thr) (const (body (return ())))
+    messages = [ area (named ("message_" ++ show d)) Nothing
+               | d <- [0..max_messages] ]
 
-threadModdef :: GeneratedCode -> AST.Tower -> AST.Thread -> ModuleDef
-threadModdef _gc twr thd@(AST.PeriodThread p) = do
-  uses_libev
-  let cb :: Def ('[Ref s2 (Struct "ev_loop"), Ref s3 (Struct "ev_timer"), Uint32] :-> ())
-      cb = proc "callback" $ \ loop _watcher _revents -> body $ do
-        now <- call ev_now loop
-        threadLoopRunHandlers twr thd now
-  private $ incl cb
-  incl $ proc (AST.threadLoopProcName thd) $ body $ do
-    loop <- call ev_default_loop 0
-    watcher <- local izero
-    let dtime t = (fromInteger $ toMicroseconds t) / 1.0e6
-    call_ ev_timer_init watcher (procPtr cb) (dtime $ AST.period_phase p) (dtime $ AST.period_dt p)
-    call_ ev_timer_start loop watcher
-    retVoid
-threadModdef gc twr thd@(AST.SignalThread s) = do
-  uses_libev
-  let cb :: Def ('[] :-> ())
-      cb = proc (AST.threadLoopProcName thd) $ body $ do
-        loop <- call ev_default_loop 0
-        now <- call ev_now loop
-        threadLoopRunHandlers twr thd now
-  incl cb
-  unGeneratedSignal (generatedCodeForSignal s gc) $ call_ cb
-threadModdef gc twr thd@(AST.InitThread _) = do
-  incl $ proc (AST.threadLoopProcName thd) $ body $ do
-    generatedcode_init gc
-    threadLoopRunHandlers twr thd 0
-    retVoid
+    messageAt idx = foldl aux dflt (zip messages [0..])
+      where
+      dflt = addrOf (messages !! 0) -- Should be impossible.
+      aux basecase (msg, midx) =
+        (fromInteger midx ==? idx) ? (addrOf msg, basecase)
 
-monitorStateModName :: AST.Monitor -> String
-monitorStateModName mon = "tower_state_monitor_" ++ AST.monitorName mon
+    eproc :: IvoryArea b => (Uint32 -> Ref s b) -> Def ('[ConstRef s' b] :-> ())
+    eproc mAt = voidProc (named "emit") $ \ msg -> body $ do
+      mc <- deref (addrOf messageCount)
+      when (mc <=? fromInteger max_messages) $ do
+        store (addrOf messageCount) (mc + 1)
+        storedmsg <- assign (mAt mc)
+        refCopy storedmsg msg
 
-monitorModules :: GeneratedCode -> AST.Tower -> [Module]
-monitorModules gc _twr = map permon $ Map.toList $ generatedcode_monitors gc
-  where
-  permon (ast, code) = package (monitorStateModName ast) $ do
-    gcDeps gc
-    monitorcode_moddef code
+    named suffix = showUnique (AST.emitter_name ast) ++ "_" ++ suffix
 
-systemModules :: AST.Tower -> [Module]
-systemModules twr = [initModule]
-  where
-  initModule = package "tower_init" $ do
-    mapM_ (depend . stubPkg . AST.threadGenCodeModName) $ AST.towerThreads twr
-    uses_libev
-    incl entryProc
+  handlerImpl _ ast emitters callbacks = h
+    where
+    ems = [ e | PosixEmitter (Just e) <- emitters ]
+    h = PosixHandler
+      { handlerAST = ast
+      , handlerRecipients = concatMap emitterRecipients ems
+      , handlerProc = voidProc ("handler_run_" ++ AST.handlerName ast) $ \ msg -> body $ do
+          mapM_ emitterInit ems
+          forM_ callbacks $ \ (PosixCallback (cb, _)) -> call_ cb msg
+          mapM_ emitterDeliver ems
+      , handlerCode = MonitorCode
+          { monitorUserCode = forM_ callbacks $ \ (PosixCallback (_, d)) -> d
+          , monitorGenCode = do
+              mapM_ emitterCode ems
+              incl $ handlerProc h
+          }
+      }
 
-  stubPkg name = package name $ return ()
-  stub name = proc name $ body retVoid
+  monitorImpl _ ast handlers moddef = PosixMonitor fromModuleMap
+    where
+    monitorRecipients = concat [ handlerRecipients h | SomeHandler h <- handlers ]
+    mods = mconcat [ handlerCode h | SomeHandler h <- handlers ]
+    -- FIXME: limit to handlers that take an ITime so the map has a consistent type.
+    -- this allows everything except SyncChan, which we wouldn't have used with threadLoopRunHandlers anyway.
+    -- chanMap = Map.fromListWith (++)
+    --   [ (AST.handler_chan $ handlerAST h, [h]) | SomeHandler h <- handlers ]
 
-  entryProc = proc "tower_entry" $ body $ do
-    mapM_ (call_ . stub . AST.threadLoopProcName) $ AST.towerThreads twr
-    loop <- call ev_default_loop 0
-    call_ ev_run loop 0
-    retVoid
+    fromModuleMap deps moduleMap = (thisModuleMap, [userMod, genMod])
+      where
+      thisModuleMap = Map.fromList
+        [ (AST.handler_name $ handlerAST h, genMod) | SomeHandler h <- handlers ]
+      otherModuleMap = moduleMap Map.\\ thisModuleMap
+      genMod = package ("tower_gen_" ++ AST.monitorName ast) $ do
+        depend userMod
+        mapM_ depend $ dependencies_depends deps
+        mapM_ depend $ mapMaybe (flip Map.lookup otherModuleMap) monitorRecipients
+        monitorGenCode mods
+      userMod = package ("tower_user_" ++ AST.monitorName ast) $ do
+        depend genMod
+        mapM_ depend $ dependencies_depends deps
+        private moddef
+        monitorUserCode mods
 
-systemArtifacts :: AST.Tower -> [Module] -> [Artifact]
-systemArtifacts _twr modules = [makefile]
-  where
-  makefile = artifactString "Makefile" $ unlines
-    [ "CC = gcc"
-    , "CFLAGS = -Wall -std=c99 -Og -g -I. -DIVORY_TEST"
-    , "LDLIBS = -lm"
-    , "OBJS = " ++ intercalate " " [ moduleName m ++ ".o" | m <- modules ]
-    , "main: $(OBJS)"
-    , "clean:"
-    , "\t-rm -f $(OBJS)"
-    , ".PHONY: clean"
-    ]
+  towerImpl _ _ monitors = PosixOutput monitors
+
+compileTowerPosix :: (TOpts -> IO e) -> Tower e () -> IO ()
+compileTowerPosix makeEnv twr = do
+  (copts, topts) <- towerGetOpts
+  env <- makeEnv topts
+  let (_ast, PosixOutput monitors, deps, _sigs) = runTower PosixBackend twr env
+
+  let moduleMap = Map.unions moduleMaps
+      (moduleMaps, monitorModules) = unzip
+        [ m deps moduleMap | PosixMonitor m <- monitors ]
+
+  -- TODO: get handler graph roots
+  {-
+  let initHandlers :: [Def ('[ConstRef s (Stored ITime)] :-> ())]
+      initHandlers = []
+  let periodicHandlers :: [(AST.Period, [Def ('[ConstRef s (Stored ITime)] :-> ())])]
+      periodicHandlers = []
+
+  let periodicCallbacks = map (second makeCallback) periodicHandlers
+        where
+        makeCallback :: [Def ('[ConstRef s (Stored ITime)] :-> ())] -> Def ('[Ref s2 ('Struct "ev_loop"), Ref s3 (Struct "ev_timer"), Uint32] ':-> ())
+        makeCallback hs = proc "callback" $ \ main_loop _watcher _revents -> body $ do
+          now <- call ev_now main_loop
+          t_ptr <- local $ ival $ fromIMicroseconds (castDefault $ now * 1e6 :: Sint64)
+          mapM_ (flip call_ $ constRef t_ptr) hs
+  -}
+
+  let entryProc = proc "main" $ body $ do
+        main_loop <- call ev_default_loop 0
+
+        {-
+        forM_ periodicCallbacks $ \ (p, cb) -> do
+          watcher <- local izero
+          let dtime t = (fromInteger $ toMicroseconds t) / 1.0e6
+          call_ ev_timer_init watcher (procPtr cb) (dtime $ AST.period_phase p) (dtime $ AST.period_dt p)
+          call_ ev_timer_start main_loop watcher
+
+        now <- call ev_now main_loop
+        t_ptr <- local $ ival $ fromIMicroseconds (castDefault $ now * 1e6 :: Sint64)
+        mapM_ (flip call_ $ constRef t_ptr) initHandlers
+        -}
+
+        call_ ev_run main_loop 0
+        ret (0 :: Sint32)
+
+  let initModule = package "tower_init" $ do
+        mapM_ depend $ Map.elems moduleMap
+        uses_libev
+        -- private $ mapM_ (incl . snd) periodicCallbacks
+        incl entryProc
+
+  let mods = initModule : concat monitorModules ++ dependencies_modules deps
+  let artifacts = makefile mods : dependencies_artifacts deps
+
+  runCompiler mods artifacts copts
+
+makefile :: [Module] -> Located Artifact
+makefile modules = Root $ artifactString "Makefile" $ unlines
+  [ "CC = gcc"
+  , "CFLAGS = -Wall -std=c99 -Og -g -I. -DIVORY_TEST"
+  , "LDLIBS = -lm -lev"
+  , "OBJS = " ++ intercalate " " [ moduleName m ++ ".o" | m <- modules ]
+  , moduleName (head modules) ++ ": $(OBJS)"
+  , "clean:"
+  , "\t-rm -f $(OBJS)"
+  , ".PHONY: clean"
+  ]

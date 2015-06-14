@@ -21,6 +21,9 @@ library
                        containers,
                        ivory,
                        ivory-artifact,
+                       ivory-backend-c,
+                       ivory-stdlib,
                        tower
   hs-source-dirs:      src
+  ghc-options:         -Wall
   default-language:    Haskell2010
