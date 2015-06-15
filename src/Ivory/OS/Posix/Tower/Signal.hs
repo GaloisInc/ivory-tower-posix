@@ -38,7 +38,7 @@ watchIO name fd eventmask = Watcher name defs $ call_ start
     call_ ev_io_start default_loop (addrOf global_watcher)
     retVoid
 
-  callback :: (forall eff. Ivory eff ()) -> Def ('[Ref s2 (Struct "ev_loop"), Ref s3 (Struct "ev_io"), Uint32] :-> ())
+  callback :: (forall eff. Ivory eff ()) -> Def ('[Ref s2 (Struct "ev_loop"), Ref s3 (Struct "ev_io"), Sint32] :-> ())
   callback action = proc (name ++ "_callback") $ \ _loop _watcher _events -> body action
 
   defs :: (forall eff. Ivory eff ()) -> ModuleDef
