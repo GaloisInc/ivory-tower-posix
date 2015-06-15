@@ -1,5 +1,9 @@
 sudo: false
 language: haskell
+addons:
+  apt:
+    packages:
+    - libev-dev
 before_install:
 - git clone https://github.com/galoisinc/ivory
 - export IVORY_REPO=$PWD/ivory
