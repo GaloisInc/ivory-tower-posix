@@ -6,10 +6,9 @@ license:             BSD3
 license-file:        LICENSE
 author:              Jamey Sharp
 maintainer:          jamey@galois.com
--- copyright:           
+copyright:           (c) 2015 Galois, Inc.
 category:            Language
 build-type:          Simple
--- extra-source-files:  
 cabal-version:       >=1.10
 
 library
@@ -25,6 +24,26 @@ library
                        ivory-stdlib,
                        tower
   hs-source-dirs:      src
+  ghc-options:         -Wall
+  default-language:    Haskell2010
+
+executable test-tick-gen
+  main-is:             Tick.hs
+  hs-source-dirs:      tests
+  build-depends:       base >=4.7 && <5,
+                       ivory,
+                       tower,
+                       ivory-tower-posix
+  ghc-options:         -Wall
+  default-language:    Haskell2010
+
+executable test-depends-gen
+  main-is:             Depends.hs
+  hs-source-dirs:      tests
+  build-depends:       base >=4.7 && <5,
+                       ivory,
+                       tower,
+                       ivory-tower-posix
   ghc-options:         -Wall
   default-language:    Haskell2010
 
