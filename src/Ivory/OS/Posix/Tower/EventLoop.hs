@@ -23,6 +23,9 @@ ev_WRITE = extern "EV_WRITE" ev_header
 ev_TIMER = extern "EV_TIMER" ev_header
 ev_ERROR = extern "EV_ERROR" ev_header
 
+ev_BREAK_ALL :: Sint32
+ev_BREAK_ALL = extern "EVBREAK_ALL" ev_header
+
 ev_default_loop :: Def ('[Uint32] :-> Ref s (Struct "ev_loop"))
 ev_default_loop = importProc "ev_default_loop" ev_header
 
@@ -51,9 +54,15 @@ ev_io_start = importProc "ev_io_start" ev_header
 
 uses_libev :: ModuleDef
 uses_libev = do
+  inclSym ev_READ
+  inclSym ev_WRITE
+  inclSym ev_TIMER
+  inclSym ev_ERROR
+  inclSym ev_BREAK_ALL
   incl ev_default_loop
   incl ev_now
   incl ev_run
+  incl ev_break
   incl ev_timer_init
   incl ev_timer_start
   incl ev_io_init

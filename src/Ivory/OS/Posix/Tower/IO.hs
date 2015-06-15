@@ -23,7 +23,9 @@ readFD name fd = do
   monitor name $ do
     let unix_read :: Def ('[FD, Ref s (Array 512 (Stored Uint8)), Uint32] :-> Sint32)
         unix_read = importProc "read" "unistd.h"
-    monitorModuleDef $ incl unix_read
+    monitorModuleDef $ do
+      uses_libev
+      incl unix_read
 
     handler sig "readable" $ do
       target <- emitter sink 512
@@ -33,7 +35,7 @@ readFD name fd = do
         ifte_ (got <=? 0)
           (do
             loop <- call ev_default_loop 0
-            call_ ev_break loop $ extern "EVBREAK_ALL" ev_header
+            call_ ev_break loop ev_BREAK_ALL
           ) (do
             for (toIx got) $ \ i -> do
               emit target $ constRef buf ! i
