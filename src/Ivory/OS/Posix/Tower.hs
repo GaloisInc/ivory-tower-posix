@@ -208,7 +208,7 @@ compileTowerPosix makeEnv twr = do
 makefile :: [Module] -> Located Artifact
 makefile modules = Root $ artifactString "Makefile" $ unlines
   [ "CC = gcc"
-  , "CFLAGS = -Wall -std=c99 -Og -g -I. -DIVORY_TEST"
+  , "CFLAGS = -Wall -std=c99 -O3 -g -I. -DIVORY_TEST"
   , "LDLIBS = -lm -lev"
   , "OBJS = " ++ intercalate " " [ moduleName m ++ ".o" | m <- modules ]
   , moduleName (head modules) ++ ": $(OBJS)"
