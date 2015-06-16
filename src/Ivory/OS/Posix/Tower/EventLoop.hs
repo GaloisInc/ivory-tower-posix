@@ -52,6 +52,9 @@ ev_io_init = importProc "ev_io_init" ev_header
 ev_io_start :: Def ('[Ref s1 (Struct "ev_loop"), Ref s2 (Struct "ev_io")] :-> ())
 ev_io_start = importProc "ev_io_start" ev_header
 
+ev_io_stop :: Def ('[Ref s1 (Struct "ev_loop"), Ref s2 (Struct "ev_io")] :-> ())
+ev_io_stop = importProc "ev_io_stop" ev_header
+
 uses_libev :: ModuleDef
 uses_libev = do
   inclSym ev_READ
@@ -67,3 +70,4 @@ uses_libev = do
   incl ev_timer_start
   incl ev_io_init
   incl ev_io_start
+  incl ev_io_stop

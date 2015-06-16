@@ -19,7 +19,6 @@ app = do
   monitor "accumulate" $ do
     monitorModuleDef $ do
       incl printf_2char
-      inclSym stdin
 
     minChar <- stateInit "minChar" $ ival maxBound
     maxChar <- stateInit "maxChar" $ ival minBound

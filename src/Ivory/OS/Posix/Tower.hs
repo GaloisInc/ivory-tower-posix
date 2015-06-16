@@ -23,6 +23,7 @@ import Ivory.Tower.Backend
 import Ivory.Tower.Options
 import Ivory.Tower.Types.Dependencies
 import Ivory.Tower.Types.Emitter
+import Ivory.Tower.Types.SignalCode
 
 data MonitorCode = MonitorCode
   { monitorGenCode :: ModuleDef
@@ -39,7 +40,7 @@ instance Monoid MonitorCode where
 data EmitterCode = EmitterCode
   { emitterInit :: forall eff. Ivory eff ()
   , emitterDeliver :: forall eff. Ivory eff ()
-  , emitterRecipients :: [Unique]
+  , emitterRecipients :: [String]
   , emitterCode :: ModuleDef
   }
 
@@ -49,13 +50,14 @@ instance TowerBackend PosixBackend where
   newtype TowerBackendCallback PosixBackend a = PosixCallback (forall s. (Def ('[ConstRef s a] :-> ()), ModuleDef))
   newtype TowerBackendEmitter PosixBackend = PosixEmitter (Maybe EmitterCode)
   data TowerBackendHandler PosixBackend a = PosixHandler
-    { handlerAST :: AST.Handler
-    , handlerRecipients :: [Unique]
+    { handlerChan :: AST.Chan
+    , handlerRecipients :: [String]
+    , handlerProcName :: String
     , handlerProc :: forall s. Def ('[ConstRef s a] :-> ())
     , handlerCode :: MonitorCode
     }
   newtype TowerBackendMonitor PosixBackend = PosixMonitor
-    (Dependencies -> Map.Map Unique Module -> (Map.Map Unique Module, [Module]))
+    (Dependencies -> Map.Map String Module -> (Map.Map String Module, Map.Map AST.Chan [String], [Module]))
   newtype TowerBackendOutput PosixBackend = PosixOutput [TowerBackendMonitor PosixBackend]
 
   callbackImpl _ ast f = PosixCallback $
@@ -73,7 +75,7 @@ instance TowerBackend PosixBackend where
               when (fromInteger index <? mc) $
                 forM_ handlers $ \ h ->
                   call_ (handlerProc h) (constRef (addrOf m))
-        , emitterRecipients = map (AST.handler_name . handlerAST) handlers
+        , emitterRecipients = map handlerProcName handlers
         , emitterCode = do
             incl $ eproc messageAt
             private $ do
@@ -109,9 +111,10 @@ instance TowerBackend PosixBackend where
     where
     ems = [ e | PosixEmitter (Just e) <- emitters ]
     h = PosixHandler
-      { handlerAST = ast
+      { handlerChan = AST.handler_chan ast
       , handlerRecipients = concatMap emitterRecipients ems
-      , handlerProc = voidProc ("handler_run_" ++ AST.handlerName ast) $ \ msg -> body $ do
+      , handlerProcName = "handler_run_" ++ AST.handlerName ast
+      , handlerProc = voidProc (handlerProcName h) $ \ msg -> body $ do
           mapM_ emitterInit ems
           forM_ callbacks $ \ (PosixCallback (cb, _)) -> call_ cb msg
           mapM_ emitterDeliver ems
@@ -127,15 +130,13 @@ instance TowerBackend PosixBackend where
     where
     monitorRecipients = concat [ handlerRecipients h | SomeHandler h <- handlers ]
     mods = mconcat [ handlerCode h | SomeHandler h <- handlers ]
-    -- FIXME: limit to handlers that take an ITime so the map has a consistent type.
-    -- this allows everything except SyncChan, which we wouldn't have used with threadLoopRunHandlers anyway.
-    -- chanMap = Map.fromListWith (++)
-    --   [ (AST.handler_chan $ handlerAST h, [h]) | SomeHandler h <- handlers ]
+    chanMap = Map.fromListWith (++)
+      [ (handlerChan h, [handlerProcName h]) | SomeHandler h <- handlers ]
 
-    fromModuleMap deps moduleMap = (thisModuleMap, [userMod, genMod])
+    fromModuleMap deps moduleMap = (thisModuleMap, chanMap, [userMod, genMod])
       where
       thisModuleMap = Map.fromList
-        [ (AST.handler_name $ handlerAST h, genMod) | SomeHandler h <- handlers ]
+        [ (handlerProcName h, genMod) | SomeHandler h <- handlers ]
       otherModuleMap = moduleMap Map.\\ thisModuleMap
       genMod = package ("tower_gen_" ++ AST.monitorName ast) $ do
         depend userMod
@@ -154,42 +155,53 @@ compileTowerPosix :: (TOpts -> IO e) -> Tower e () -> IO ()
 compileTowerPosix makeEnv twr = do
   (copts, topts) <- towerGetOpts
   env <- makeEnv topts
-  let (_ast, PosixOutput monitors, deps, _sigs) = runTower PosixBackend twr env
+  let (_ast, PosixOutput monitors, deps, sigs) = runTower PosixBackend twr env
 
   let moduleMap = Map.unions moduleMaps
-      (moduleMaps, monitorModules) = unzip
+      (moduleMaps, chanMaps, monitorModules) = unzip3
         [ m deps moduleMap | PosixMonitor m <- monitors ]
 
-  -- TODO: get handler graph roots
-  {-
-  let initHandlers :: [Def ('[ConstRef s (Stored ITime)] :-> ())]
-      initHandlers = []
-  let periodicHandlers :: [(AST.Period, [Def ('[ConstRef s (Stored ITime)] :-> ())])]
-      periodicHandlers = []
+  let chanMap = Map.unionsWith (++) chanMaps
 
-  let periodicCallbacks = map (second makeCallback) periodicHandlers
-        where
-        makeCallback :: [Def ('[ConstRef s (Stored ITime)] :-> ())] -> Def ('[Ref s2 ('Struct "ev_loop"), Ref s3 (Struct "ev_timer"), Uint32] ':-> ())
-        makeCallback hs = proc "callback" $ \ main_loop _watcher _revents -> body $ do
-          now <- call ev_now main_loop
-          t_ptr <- local $ ival $ fromIMicroseconds (castDefault $ now * 1e6 :: Sint64)
-          mapM_ (flip call_ $ constRef t_ptr) hs
-  -}
+  let itimeStub :: String -> Def ('[ConstRef s (Stored ITime)] :-> ())
+      itimeStub name = proc name $ const $ body $ return ()
+
+  let callHandlers main_loop names = do
+        now <- call ev_now main_loop
+        t_ptr <- fmap constRef $ local $ ival $
+          fromIMicroseconds (castDefault $ now * 1e6 :: Sint64)
+        forM_ names $ \ name -> call_ (itimeStub name) t_ptr
+
+  let signalChannels = Map.fromAscList
+        [ (AST.signal_name s, xs)
+        | (AST.ChanSignal s, xs) <- Map.toAscList chanMap
+        ]
+
+  let signalHandlers = Map.elems $ Map.intersectionWith (,) signalChannels $ signalcode_signals sigs
+
+  let periodicHandlers = do
+        (AST.ChanPeriod p, names) <- Map.toList chanMap
+
+        let cbname = "elapsed_" ++ prettyTime (AST.period_dt p) ++
+              if toMicroseconds (AST.period_phase p) == 0
+              then ""
+              else "_phase_" ++ prettyTime (AST.period_phase p)
+
+        return (p, proc cbname $ \ l _ _ -> body $ callHandlers l names)
 
   let entryProc = proc "main" $ body $ do
         main_loop <- call ev_default_loop 0
 
-        {-
-        forM_ periodicCallbacks $ \ (p, cb) -> do
+        forM_ periodicHandlers $ \ (p, cb) -> do
           watcher <- local izero
           let dtime t = (fromInteger $ toMicroseconds t) / 1.0e6
-          call_ ev_timer_init watcher (procPtr cb) (dtime $ AST.period_phase p) (dtime $ AST.period_dt p)
+          call_ ev_timer_init watcher (procPtr cb)
+            (dtime $ AST.period_phase p)
+            (dtime $ AST.period_dt p)
           call_ ev_timer_start main_loop watcher
 
-        now <- call ev_now main_loop
-        t_ptr <- local $ ival $ fromIMicroseconds (castDefault $ now * 1e6 :: Sint64)
-        mapM_ (flip call_ $ constRef t_ptr) initHandlers
-        -}
+        signalcode_init sigs
+        maybe (return ()) (callHandlers main_loop) $ Map.lookup (AST.ChanInit AST.Init) chanMap
 
         call_ ev_run main_loop 0
         ret (0 :: Sint32)
@@ -197,8 +209,12 @@ compileTowerPosix makeEnv twr = do
   let initModule = package "tower_init" $ do
         mapM_ depend $ Map.elems moduleMap
         uses_libev
-        -- private $ mapM_ (incl . snd) periodicCallbacks
         incl entryProc
+        private $ do
+          forM_ signalHandlers $ \ (handlers, code) -> unGeneratedSignal code $ do
+            main_loop <- call ev_default_loop 0
+            callHandlers main_loop handlers
+          mapM_ (incl . snd) periodicHandlers
 
   let mods = initModule : concat monitorModules ++ dependencies_modules deps
   let artifacts = makefile mods : dependencies_artifacts deps

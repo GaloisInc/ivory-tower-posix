@@ -18,11 +18,11 @@ stderr = extern "STDERR_FILENO" "unistd.h"
 readFD :: String -> FD -> Tower e (ChanOutput (Stored Uint8))
 readFD name fd = do
   (sink, source) <- channel
-  sig <- signal (watchIO name fd ReadOnly) (us 0)
 
-  monitor name $ do
-    let unix_read :: Def ('[FD, Ref s (Array 512 (Stored Uint8)), Uint32] :-> Sint32)
+  watchIO name fd ReadOnly $ \ sig global_watcher -> do
+    let unix_read :: Def ('[FD, Ref s (CArray (Stored Uint8)), Uint32] :-> Sint32)
         unix_read = importProc "read" "unistd.h"
+
     monitorModuleDef $ do
       uses_libev
       incl unix_read
@@ -31,11 +31,11 @@ readFD name fd = do
       target <- emitter sink 512
       callback $ const $ do
         buf <- local (izero :: Init (Array 512 (Stored Uint8)))
-        got <- call unix_read fd buf (arrayLen buf)
+        got <- call unix_read fd (toCArray buf) (arrayLen buf)
         ifte_ (got <=? 0)
           (do
             loop <- call ev_default_loop 0
-            call_ ev_break loop ev_BREAK_ALL
+            call_ ev_io_stop loop global_watcher
           ) (do
             for (toIx got) $ \ i -> do
               emit target $ constRef buf ! i
