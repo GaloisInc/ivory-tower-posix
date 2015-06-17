@@ -14,6 +14,7 @@ cabal-version:       >=1.10
 library
   exposed-modules:     Ivory.OS.Posix.Tower,
                        Ivory.OS.Posix.Tower.IO,
+                       Ivory.OS.Posix.Tower.Serial,
                        Ivory.OS.Posix.Tower.Signal
   other-modules:       Ivory.OS.Posix.Tower.EventLoop
   build-depends:       base >=4.7 && <5,
@@ -22,7 +23,8 @@ library
                        ivory-artifact,
                        ivory-backend-c,
                        ivory-stdlib,
-                       tower
+                       tower,
+                       tower-hal
   hs-source-dirs:      src
   ghc-options:         -Wall
   default-language:    Haskell2010
