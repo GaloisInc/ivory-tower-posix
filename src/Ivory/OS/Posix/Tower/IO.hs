@@ -28,9 +28,12 @@ readFD name fd = do
       incl unix_read
 
     handler sig "readable" $ do
-      target <- emitter sink 512
+      -- this used to be a 512 byte chunk, but the generated emitter delivery
+      -- had too many nested parens for clang to compile without a special
+      -- option. so instead lets just make it work on smaller chunks.
+      target <- emitter sink 128
       callback $ const $ do
-        buf <- local (izero :: Init (Array 512 (Stored Uint8)))
+        buf <- local (izero :: Init (Array 128 (Stored Uint8)))
         got <- call unix_read fd (toCArray buf) (arrayLen buf)
         ifte_ (got <=? 0)
           (do
