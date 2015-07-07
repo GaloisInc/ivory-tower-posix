@@ -199,6 +199,8 @@ compileTowerPosix makeEnv twr = do
             (dtime $ AST.period_phase p)
             (dtime $ AST.period_dt p)
           call_ ev_timer_start main_loop watcher
+          comment "Don't let this periodic thread keep the main loop running."
+          call_ ev_unref main_loop
 
         signalcode_init sigs
         maybe (return ()) (callHandlers main_loop) $ Map.lookup (AST.ChanInit AST.Init) chanMap
