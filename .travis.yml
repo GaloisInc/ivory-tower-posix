@@ -10,7 +10,7 @@ before_install:
 - git clone https://github.com/galoisinc/tower
 - export TOWER_REPO=$PWD/tower
 install:
-- cabal install alex happy
+- cabal install alex-3.1.4  happy
 script:
 - make create-sandbox test
 ghc:
