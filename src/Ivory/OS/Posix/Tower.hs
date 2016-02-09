@@ -203,7 +203,7 @@ compileTowerPosix makeEnv twr = do
           call_ ev_unref main_loop
 
         signalcode_init sigs
-        maybe (return ()) (callHandlers main_loop) $ Map.lookup AST.ChanInit chanMap
+        maybe (return ()) (callHandlers main_loop) $ Map.lookup (AST.ChanInit AST.Init) chanMap
 
         call_ ev_run main_loop 0
         ret (0 :: Sint32)
