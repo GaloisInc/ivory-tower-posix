@@ -26,36 +26,36 @@ ev_ERROR = extern "EV_ERROR" ev_header
 ev_BREAK_ALL :: Sint32
 ev_BREAK_ALL = extern "EVBREAK_ALL" ev_header
 
-ev_default_loop :: Def ('[Uint32] :-> Ref s (Struct "ev_loop"))
+ev_default_loop :: Def ('[Uint32] ':-> Ref s ('Struct "ev_loop"))
 ev_default_loop = importProc "ev_default_loop" ev_header
 
-ev_now :: Def ('[Ref s (Struct "ev_loop")] :-> IDouble)
+ev_now :: Def ('[Ref s ('Struct "ev_loop")] ':-> IDouble)
 ev_now = importProc "ev_now" ev_header
 
-ev_run :: Def ('[Ref s (Struct "ev_loop"), Sint32] :-> IBool)
+ev_run :: Def ('[Ref s ('Struct "ev_loop"), Sint32] ':-> IBool)
 ev_run = importProc "ev_run" ev_header
 
-ev_break :: Def ('[Ref s (Struct "ev_loop"), Sint32] :-> ())
+ev_break :: Def ('[Ref s ('Struct "ev_loop"), Sint32] ':-> ())
 ev_break = importProc "ev_break" ev_header
 
-ev_unref :: Def ('[Ref s (Struct "ev_loop")] :-> ())
+ev_unref :: Def ('[Ref s ('Struct "ev_loop")] ':-> ())
 ev_unref = importProc "ev_unref" ev_header
 
-type CallbackPtr s2 s3 watcher = ProcPtr ('[Ref s2 (Struct "ev_loop"), Ref s3 (Struct watcher), Sint32] :-> ())
+type CallbackPtr s2 s3 watcher = ProcPtr ('[Ref s2 ('Struct "ev_loop"), Ref s3 ('Struct watcher), Sint32] ':-> ())
 
-ev_timer_init :: Def ('[Ref s1 (Struct "ev_timer"), CallbackPtr s2 s3 "ev_timer", IDouble, IDouble] :-> ())
+ev_timer_init :: Def ('[Ref s1 ('Struct "ev_timer"), CallbackPtr s2 s3 "ev_timer", IDouble, IDouble] ':-> ())
 ev_timer_init = importProc "ev_timer_init" ev_header
 
-ev_timer_start :: Def ('[Ref s1 (Struct "ev_loop"), Ref s2 (Struct "ev_timer")] :-> ())
+ev_timer_start :: Def ('[Ref s1 ('Struct "ev_loop"), Ref s2 ('Struct "ev_timer")] ':-> ())
 ev_timer_start = importProc "ev_timer_start" ev_header
 
-ev_io_init :: Def ('[Ref s1 (Struct "ev_io"), CallbackPtr s2 s3 "ev_io", Sint32, Uint32] :-> ())
+ev_io_init :: Def ('[Ref s1 ('Struct "ev_io"), CallbackPtr s2 s3 "ev_io", Sint32, Uint32] ':-> ())
 ev_io_init = importProc "ev_io_init" ev_header
 
-ev_io_start :: Def ('[Ref s1 (Struct "ev_loop"), Ref s2 (Struct "ev_io")] :-> ())
+ev_io_start :: Def ('[Ref s1 ('Struct "ev_loop"), Ref s2 ('Struct "ev_io")] ':-> ())
 ev_io_start = importProc "ev_io_start" ev_header
 
-ev_io_stop :: Def ('[Ref s1 (Struct "ev_loop"), Ref s2 (Struct "ev_io")] :-> ())
+ev_io_stop :: Def ('[Ref s1 ('Struct "ev_loop"), Ref s2 ('Struct "ev_io")] ':-> ())
 ev_io_stop = importProc "ev_io_stop" ev_header
 
 uses_libev :: ModuleDef

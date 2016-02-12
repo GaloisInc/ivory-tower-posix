@@ -27,7 +27,7 @@ app = do
     s <- state "local_st"
     handler per "tick" $ do
       e <- emitter c1in 1
-      callback $ \_ -> emit e (constRef (s :: Ref Global (Struct "Foo")))
+      callback $ \_ -> emit e (constRef (s :: Ref 'Global ('Struct "Foo")))
 
   monitor "m2" $ do
     s <- state "last_m2_chan1_message"

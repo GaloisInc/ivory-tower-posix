@@ -15,12 +15,12 @@ stdin = extern "STDIN_FILENO" "unistd.h"
 stdout = extern "STDOUT_FILENO" "unistd.h"
 stderr = extern "STDERR_FILENO" "unistd.h"
 
-readFD :: String -> FD -> Tower e (ChanOutput (Stored Uint8))
+readFD :: String -> FD -> Tower e (ChanOutput ('Stored Uint8))
 readFD name fd = do
   (sink, source) <- channel
 
   watchIO name fd ReadOnly $ \ sig global_watcher -> do
-    let unix_read :: Def ('[FD, Ref s (CArray (Stored Uint8)), Uint32] :-> Sint32)
+    let unix_read :: Def ('[FD, Ref s ('CArray ('Stored Uint8)), Uint32] ':-> Sint32)
         unix_read = importProc "read" "unistd.h"
 
     monitorModuleDef $ do
@@ -33,7 +33,7 @@ readFD name fd = do
       -- option. so instead lets just make it work on smaller chunks.
       target <- emitter sink 128
       callback $ const $ do
-        buf <- local (izero :: Init (Array 128 (Stored Uint8)))
+        buf <- local (izero :: Init ('Array 128 ('Stored Uint8)))
         got <- call unix_read fd (toCArray buf) (arrayLen buf)
         ifte_ (got <=? 0)
           (do

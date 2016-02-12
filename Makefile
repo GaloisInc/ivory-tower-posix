@@ -1,13 +1,11 @@
-IVORY_REPO ?= ../ivory
-TOWER_REPO ?= ../tower
-include Makefile.sandbox
+include stack.mk
 
 test: test-tick-gen
 test: test-depends-gen
 test: test-handlers-gen
 
-%-gen:
-	cabal run $@ -- --src-dir=$* --const-fold
+%-gen: default
+	stack exec -- $@ --src-dir=$* --const-fold
 	make -C $*
 
 %-clean:
@@ -16,3 +14,9 @@ test: test-handlers-gen
 clean: test-tick-clean
 clean: test-depends-clean
 clean: test-handlers-clean
+
+TRAVIS_STACK ?= stack --no-terminal --system-ghc --skip-ghc-check
+
+travis-test:
+	$(TRAVIS_STACK) build --test --no-run-tests --haddock --no-haddock-deps --pedantic
+	make test
