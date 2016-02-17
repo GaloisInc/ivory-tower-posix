@@ -15,15 +15,15 @@ import Ivory.OS.Posix.Tower.Signal
 
 [ivory| abstract struct termios "termios.h" |]
 
-cfmakeraw :: Def ('[Ref s (Struct "termios")] :-> ())
+cfmakeraw :: Def ('[Ref s ('Struct "termios")] ':-> ())
 cfmakeraw = importProc "cfmakeraw" "termios.h"
 
 type BaudRate = Uint32
 
-cfsetispeed :: Def ('[Ref s (Struct "termios"), BaudRate] :-> ())
+cfsetispeed :: Def ('[Ref s ('Struct "termios"), BaudRate] ':-> ())
 cfsetispeed = importProc "cfsetispeed" "termios.h"
 
-cfsetospeed :: Def ('[Ref s (Struct "termios"), BaudRate] :-> ())
+cfsetospeed :: Def ('[Ref s ('Struct "termios"), BaudRate] ':-> ())
 cfsetospeed = importProc "cfsetospeed" "termios.h"
 
 b115200 :: BaudRate
@@ -32,18 +32,18 @@ b115200 = extern "B115200" "termios.h"
 tcsaNow :: Sint32
 tcsaNow = extern "TCSANOW" "termios.h"
 
-tcgetattr :: Def ('[FD, Ref s (Struct "termios")] :-> ())
+tcgetattr :: Def ('[FD, Ref s ('Struct "termios")] ':-> ())
 tcgetattr = importProc "tcgetattr" "termios.h"
 
-tcsetattr :: Def ('[FD, Sint32, ConstRef s (Struct "termios")] :-> ())
+tcsetattr :: Def ('[FD, Sint32, ConstRef s ('Struct "termios")] ':-> ())
 tcsetattr = importProc "tcsetattr" "termios.h"
 
-unix_write :: Def ('[FD, ConstRef s (CArray (Stored Uint8)), Uint32] :-> Sint32)
+unix_write :: Def ('[FD, ConstRef s ('CArray ('Stored Uint8)), Uint32] ':-> Sint32)
 unix_write = importProc "write" "unistd.h"
 
 serialIO :: IvoryString s
-         => Tower e ( BackpressureTransmit s (Stored IBool)
-                    , ChanOutput (Stored Uint8))
+         => Tower e ( BackpressureTransmit s ('Stored IBool)
+                    , ChanOutput ('Stored Uint8))
 serialIO = do
   reader <- readFD "serial_in" stdin
 

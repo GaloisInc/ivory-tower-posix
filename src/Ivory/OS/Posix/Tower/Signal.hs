@@ -28,7 +28,7 @@ data IOEventMask
 watchIO :: String
         -> Sint32
         -> IOEventMask
-        -> (ChanOutput (Stored ITime) -> Ref Global (Struct "ev_io") -> Monitor e ())
+        -> (ChanOutput ('Stored ITime) -> Ref 'Global ('Struct "ev_io") -> Monitor e ())
         -> Tower e ()
 watchIO name fd eventmask mon = do
   sig <- signal (Watcher name defs $ call_ start $ procPtr $ cb $ return ()) (us 0)
@@ -39,7 +39,7 @@ watchIO name fd eventmask mon = do
 
     mon sig $ addrOf global_watcher
   where
-  cb :: (forall s1. Ivory (AllocEffects s1) ()) -> Def ('[Ref s2 (Struct "ev_loop"), Ref s3 (Struct "ev_io"), Sint32] :-> ())
+  cb :: (forall s1. Ivory (AllocEffects s1) ()) -> Def ('[Ref s2 ('Struct "ev_loop"), Ref s3 ('Struct "ev_io"), Sint32] ':-> ())
   cb action = proc (name ++ "_callback") $ \ _loop _watcher _events -> body $
     noReturn action
 

@@ -8,7 +8,7 @@ import Ivory.Tower
 import Ivory.OS.Posix.Tower
 import Ivory.OS.Posix.Tower.IO
 
-printf_2char :: Def ('[IString, Uint8, Uint8] :-> ())
+printf_2char :: Def ('[IString, Uint8, Uint8] ':-> ())
 printf_2char = importProc "printf" "stdio.h"
 
 app :: Tower e ()

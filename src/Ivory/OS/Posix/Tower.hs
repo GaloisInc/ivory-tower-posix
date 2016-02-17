@@ -7,11 +7,13 @@ module Ivory.OS.Posix.Tower (
   compileTowerPosix
 ) where
 
+import Prelude ()
+import Prelude.Compat
+
 import Control.Monad (forM_)
-import Data.List
+import Data.List (intercalate)
 import qualified Data.Map as Map
 import Data.Maybe
-import Data.Monoid
 import Ivory.Artifact
 import Ivory.Compile.C.CmdlineFrontend (runCompiler)
 import Ivory.Language
@@ -47,13 +49,13 @@ data EmitterCode = EmitterCode
 data PosixBackend = PosixBackend
 
 instance TowerBackend PosixBackend where
-  newtype TowerBackendCallback PosixBackend a = PosixCallback (forall s. (Def ('[ConstRef s a] :-> ()), ModuleDef))
+  newtype TowerBackendCallback PosixBackend a = PosixCallback (forall s. (Def ('[ConstRef s a] ':-> ()), ModuleDef))
   newtype TowerBackendEmitter PosixBackend = PosixEmitter (Maybe EmitterCode)
   data TowerBackendHandler PosixBackend a = PosixHandler
     { handlerChan :: AST.Chan
     , handlerRecipients :: [String]
     , handlerProcName :: String
-    , handlerProc :: forall s. Def ('[ConstRef s a] :-> ())
+    , handlerProc :: forall s. Def ('[ConstRef s a] ':-> ())
     , handlerCode :: MonitorCode
     }
   newtype TowerBackendMonitor PosixBackend = PosixMonitor
@@ -85,7 +87,7 @@ instance TowerBackend PosixBackend where
     )
     where
     max_messages = AST.emitter_bound ast - 1
-    messageCount :: MemArea (Stored Uint32)
+    messageCount :: MemArea ('Stored Uint32)
     messageCount = area (named "message_count") Nothing
 
     messages = [ area (named ("message_" ++ show d)) Nothing
@@ -97,7 +99,7 @@ instance TowerBackend PosixBackend where
       aux basecase (msg, midx) =
         (fromInteger midx ==? idx) ? (addrOf msg, basecase)
 
-    eproc :: IvoryArea b => (Uint32 -> Ref s b) -> Def ('[ConstRef s' b] :-> ())
+    eproc :: IvoryArea b => (Uint32 -> Ref s b) -> Def ('[ConstRef s' b] ':-> ())
     eproc mAt = voidProc (named "emit") $ \ msg -> body $ do
       mc <- deref (addrOf messageCount)
       when (mc <=? fromInteger max_messages) $ do
@@ -163,7 +165,7 @@ compileTowerPosix makeEnv twr = do
 
   let chanMap = Map.unionsWith (++) chanMaps
 
-  let itimeStub :: String -> Def ('[ConstRef s (Stored ITime)] :-> ())
+  let itimeStub :: String -> Def ('[ConstRef s ('Stored ITime)] ':-> ())
       itimeStub name = proc name $ const $ body $ return ()
 
   let callHandlers main_loop names = do
