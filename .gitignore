@@ -3,3 +3,5 @@ dist/
 cabal.sandbox.config
 test-*/
 .stack-work
+.DS_Store
+
