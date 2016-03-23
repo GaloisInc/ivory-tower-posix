@@ -4,7 +4,10 @@
 {-# LANGUAGE TypeOperators #-}
 
 module Ivory.OS.Posix.Tower (
-  compileTowerPosix
+  compileTowerPosix,
+  compileTowerPosixWithOpts,
+  parseTowerPosix,
+  parseTowerPosixWithOpts
 ) where
 
 import Prelude ()
@@ -154,10 +157,13 @@ instance TowerBackend PosixBackend where
   towerImpl _ _ monitors = PosixOutput monitors
 
 compileTowerPosix :: (TOpts -> IO e) -> Tower e () -> IO ()
-compileTowerPosix makeEnv twr = do
+compileTowerPosix makeEnv twr = compileTowerPosixWithOpts makeEnv twr []
+
+compileTowerPosixWithOpts :: (TOpts -> IO e) -> Tower e () -> [AST.Tower -> IO AST.Tower] -> IO ()
+compileTowerPosixWithOpts makeEnv twr optslist = do
   (copts, topts) <- towerGetOpts
   env <- makeEnv topts
-  (_ast, PosixOutput monitors, deps, sigs) <- runTower PosixBackend twr env []
+  (_ast, PosixOutput monitors, deps, sigs) <- runTower PosixBackend twr env optslist
 
   let moduleMap = Map.unions moduleMaps
       (moduleMaps, chanMaps, monitorModules) = unzip3
@@ -224,6 +230,17 @@ compileTowerPosix makeEnv twr = do
   let artifacts = makefile mods : dependencies_artifacts deps
 
   runCompiler mods artifacts copts
+
+parseTowerPosix :: (TOpts -> IO e) -> Tower e () -> IO AST.Tower
+parseTowerPosix makeEnv twr = parseTowerPosixWithOpts makeEnv twr []
+
+parseTowerPosixWithOpts :: (TOpts -> IO e) -> Tower e () -> [AST.Tower -> IO AST.Tower] -> IO AST.Tower
+parseTowerPosixWithOpts makeEnv twr optslist = do
+  (_, topts) <- towerGetOpts
+  env <- makeEnv topts
+  (ast, _, _, _) <- runTower PosixBackend twr env optslist
+  return ast
+
 
 makefile :: [Module] -> Located Artifact
 makefile modules = Root $ artifactString "Makefile" $ unlines
