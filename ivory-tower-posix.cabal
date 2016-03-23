@@ -20,6 +20,7 @@ library
   build-depends:       base >=4.7 && <5,
                        base-compat >= 0.6,
                        containers,
+                       monadLib,
                        ivory,
                        ivory-artifact,
                        ivory-backend-c,

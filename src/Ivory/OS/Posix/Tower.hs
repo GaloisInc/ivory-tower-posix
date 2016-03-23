@@ -17,6 +17,8 @@ import Data.Maybe
 import Ivory.Artifact
 import Ivory.Compile.C.CmdlineFrontend (runCompiler)
 import Ivory.Language
+import Ivory.Language.Module
+import qualified Ivory.Language.Syntax as IAST
 import Ivory.OS.Posix.Tower.EventLoop
 import Ivory.Stdlib.Control
 import Ivory.Tower
@@ -26,6 +28,7 @@ import Ivory.Tower.Options
 import Ivory.Tower.Types.Dependencies
 import Ivory.Tower.Types.Emitter
 import Ivory.Tower.Types.SignalCode
+import MonadLib (put)
 
 data MonitorCode = MonitorCode
   { monitorGenCode :: ModuleDef
@@ -49,27 +52,52 @@ data EmitterCode = EmitterCode
 data PosixBackend = PosixBackend
 
 instance TowerBackend PosixBackend where
-  newtype TowerBackendCallback PosixBackend a = PosixCallback (forall s. (Def ('[ConstRef s a] ':-> ()), ModuleDef))
+  newtype TowerBackendCallback PosixBackend = PosixCallback (IAST.Proc, ModuleDef)
   newtype TowerBackendEmitter PosixBackend = PosixEmitter (Maybe EmitterCode)
-  data TowerBackendHandler PosixBackend a = PosixHandler
+  data TowerBackendHandler PosixBackend = PosixHandler
     { handlerChan :: AST.Chan
     , handlerRecipients :: [String]
     , handlerProcName :: String
-    , handlerProc :: forall s. Def ('[ConstRef s a] ':-> ())
+    , handlerProc :: IAST.Proc
     , handlerCode :: MonitorCode
     }
   newtype TowerBackendMonitor PosixBackend = PosixMonitor
     (Dependencies -> Map.Map String Module -> (Map.Map String Module, Map.Map AST.Chan [String], [Module]))
   newtype TowerBackendOutput PosixBackend = PosixOutput [TowerBackendMonitor PosixBackend]
 
-  callbackImpl _ ast f = PosixCallback $
-    let p = proc (showUnique ast) $ \ r -> body $ noReturn $ f r
-    in (p, incl p)
+  callbackImpl _ name f = PosixCallback $
+    let p = f
+    in (p, put (mempty { IAST.modProcs   = visAcc Public p }))
 
-  emitterImpl _ _ [] = (Emitter $ const $ return (), PosixEmitter Nothing)
+  emitterImplAST _ _ = (Emitter $ const $ return ())
+  emitterImplAST _ ast = Emitter $ call_ $ eproc messageAt
+    where
+    max_messages = AST.emitter_bound ast - 1
+    messageCount :: MemArea ('Stored Uint32)
+    messageCount = area (named "message_count") Nothing
+
+    messages = [ area (named ("message_" ++ show d)) Nothing
+               | d <- [0..max_messages] ]
+
+    messageAt idx = foldl aux dflt (zip messages [0..])
+      where
+      dflt = addrOf (messages !! 0) -- Should be impossible.
+      aux basecase (msg, midx) =
+        (fromInteger midx ==? idx) ? (addrOf msg, basecase)
+
+    eproc :: IvoryArea b => (Uint32 -> Ref s b) -> Def ('[ConstRef s' b] ':-> ())
+    eproc mAt = voidProc (named "emit") $ \ msg -> body $ do
+      mc <- deref (addrOf messageCount)
+      when (mc <=? fromInteger max_messages) $ do
+        store (addrOf messageCount) (mc + 1)
+        storedmsg <- assign (mAt mc)
+        refCopy storedmsg msg
+
+    named suffix = showUnique (AST.emitter_name ast) ++ "_" ++ suffix
+
+  emitterImpl _ _ [] = (PosixEmitter Nothing)
   emitterImpl _ ast handlers =
-    ( Emitter $ call_ $ eproc messageAt
-    , PosixEmitter $ Just EmitterCode
+    PosixEmitter $ Just EmitterCode
         { emitterInit = store (addrOf messageCount) 0
         , emitterDeliver = do
             mc <- deref (addrOf messageCount)
@@ -84,7 +112,6 @@ instance TowerBackend PosixBackend where
               mapM_ defMemArea messages
               defMemArea messageCount
         }
-    )
     where
     max_messages = AST.emitter_bound ast - 1
     messageCount :: MemArea ('Stored Uint32)
@@ -154,10 +181,13 @@ instance TowerBackend PosixBackend where
   towerImpl _ _ monitors = PosixOutput monitors
 
 compileTowerPosix :: (TOpts -> IO e) -> Tower e () -> IO ()
-compileTowerPosix makeEnv twr = do
+compileTowerPosix makeEnv twr = compileTowerPosixWithOpts makeEnv twr []
+
+compileTowerPosixWithOpts :: (TOpts -> IO e) -> Tower e () -> [AST.Tower -> IO AST.Tower] -> IO ()
+compileTowerPosixWithOpts makeEnv twr optslist = do
   (copts, topts) <- towerGetOpts
   env <- makeEnv topts
-  (_ast, PosixOutput monitors, deps, sigs) <- runTower PosixBackend twr env []
+  (_ast, PosixOutput monitors, deps, sigs) <- runTower PosixBackend twr env optslist
 
   let moduleMap = Map.unions moduleMaps
       (moduleMaps, chanMaps, monitorModules) = unzip3
