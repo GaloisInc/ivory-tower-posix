@@ -26,10 +26,10 @@ before_install:
   - stack --version
 install:
   - git clone https://github.com/galoisinc/ivory
-  - (cd ivory; git checkout $TRAVIS_BRANCH)
+  - (cd ivory; git checkout $TRAVIS_BRANCH) || true
   - export IVORY_REPO=$PWD/ivory
   - git clone https://github.com/galoisinc/tower
-  - (cd tower; git checkout $TRAVIS_BRANCH)
+  - (cd tower; git checkout $TRAVIS_BRANCH) || true
   - export TOWER_REPO=$PWD/tower
   # tweak the relative paths in stack.yaml
   - sed -i "s;\.\./;$PWD/;g" $STACK_YAML
