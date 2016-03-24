@@ -26,6 +26,7 @@ import Ivory.Tower
 import qualified Ivory.Tower.AST as AST
 import Ivory.Tower.Backend
 import Ivory.Tower.Options
+import Ivory.Tower.Types.Backend
 import Ivory.Tower.Types.Dependencies
 import Ivory.Tower.Types.Emitter
 import Ivory.Tower.Types.SignalCode
@@ -51,7 +52,7 @@ data EmitterCode = EmitterCode
 
 data PosixBackend = PosixBackend
 
-instance TowerBackend PosixBackend where
+instance TowerBackendTypes PosixBackend where 
   newtype TowerBackendCallback PosixBackend a = PosixCallback (forall s. (Def ('[ConstRef s a] ':-> ()), ModuleDef))
   newtype TowerBackendEmitter PosixBackend = PosixEmitter (Maybe EmitterCode)
   data TowerBackendHandler PosixBackend a = PosixHandler
@@ -65,6 +66,7 @@ instance TowerBackend PosixBackend where
     (Dependencies -> Map.Map String Module -> (Map.Map String Module, Map.Map AST.Chan [String], [Module]))
   newtype TowerBackendOutput PosixBackend = PosixOutput [TowerBackendMonitor PosixBackend]
 
+instance TowerBackend PosixBackend where
   callbackImpl _ ast f = PosixCallback $
     let p = proc (showUnique ast) $ \ r -> body $ noReturn $ f r
     in (p, incl p)
