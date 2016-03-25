@@ -165,8 +165,8 @@ compileTowerPosixWithOpts :: (TOpts -> IO e) -> Tower e () -> [AST.Tower -> IO A
 compileTowerPosixWithOpts makeEnv twr optslist = do
   (copts, topts) <- towerGetOpts
   env <- makeEnv topts
-  (_ast, PosixOutput monitors, deps, sigs) <- runTower PosixBackend twr env optslist
-
+  (ast, tempMonitors, deps, sigs) <- runTower PosixBackend twr env optslist
+  let PosixOutput monitors = towerImpl PosixBackend ast tempMonitors 
   let moduleMap = Map.unions moduleMaps
       (moduleMaps, chanMaps, monitorModules) = unzip3
         [ m deps moduleMap | PosixMonitor m <- monitors ]
