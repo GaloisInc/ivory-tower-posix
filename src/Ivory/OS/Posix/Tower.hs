@@ -320,7 +320,7 @@ monitorImplTD tow ast =
     where
     (moddef::ModuleDef) = put $ AST.monitor_moduledef ast 
     handlers = map (handlerImplTD tow) $ AST.monitor_handlers ast
-    monitorRecipients = concat [ recip | (_,_,_,recip) <- handlers ]
+    monitorRecipients = concat [ recipient | (_,_,_,recipient) <- handlers ]
     mods = mconcat [ code | (_,_,code,_) <- handlers ]
     chanMap = Map.fromListWith (++)
       [ (AST.handler_chan hast, ["handler_run_" ++ AST.handlerName hast]) | (_,hast,_,_) <- handlers ]
