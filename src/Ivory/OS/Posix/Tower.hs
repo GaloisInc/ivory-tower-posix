@@ -309,7 +309,7 @@ handlerImplTD tow ast = (h,ast,moncode,concatMap emitterRecipients ems)
     moncode = MonitorCode
       { monitorUserCode = sequence_ cbdefs
       , monitorGenCode = do
-          let inclh = put (mempty { IAST.modProcs   = Mod.visAcc Mod.Private h })
+          let inclh = put (mempty { IAST.modProcs   = Mod.visAcc Mod.Public h })
           mapM_ emitterCode ems
           inclh
       }
