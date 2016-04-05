@@ -223,8 +223,16 @@ emitterCodeTD ast sinks = Just $ EmitterCode
   where
   emitter_type :: TIAST.Type
   emitter_type = TIAST.tType $ head $ IAST.procArgs $ head sinks
+
   emitter_type_unconst :: TIAST.Type
   emitter_type_unconst = 
+    let (TIAST.TyConstRef tt) = emitter_type in
+    case tt of 
+      TIAST.TyArr{} -> tt
+      _             -> TIAST.TyRef tt 
+
+  emitter_type_unconst_withref :: TIAST.Type
+  emitter_type_unconst_withref = 
     let (TIAST.TyConstRef tt) = emitter_type in
     TIAST.TyRef tt 
   emitter_type_unconst_unref :: TIAST.Type
@@ -263,7 +271,7 @@ emitterCodeTD ast sinks = Just $ EmitterCode
       [IAST.Deref (TIAST.TyWord TIAST.Word32) mc (primAddrOf messageCount),
       IAST.IfTE (IAST.ExpOp (IAST.ExpLt True $ TIAST.TyWord TIAST.Word32) [IAST.ExpVar mc, IAST.ExpLit $ IAST.LitInteger $ fromInteger max_messages]) 
         [IAST.Store (TIAST.TyWord TIAST.Word32) (primAddrOf messageCount) (IAST.ExpOp IAST.ExpAdd [IAST.ExpVar mc, IAST.ExpLit $ IAST.LitInteger $ (1::Integer)]),
-        IAST.Assign (emitter_type_unconst) r (messageAt mc),
+        IAST.Assign (emitter_type_unconst_withref) r (messageAt mc),
         IAST.RefCopy (emitter_type_unconst) (IAST.ExpVar r) (IAST.ExpVar var)] 
         [] --nothing else
       ]
