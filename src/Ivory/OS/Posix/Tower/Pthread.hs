@@ -326,7 +326,7 @@ pthread_mutexattr_settype = importProc "pthread_mutexattr_settype" pthread_heade
 
 
 
-pthread_once :: Def ('[Ref s ('Stored PthreadOnce), OnceFuncPtr] ':-> CInt)
+pthread_once :: Def ('[Ref s ('Stored PthreadOnce), OnceFuncPtr s2] ':-> CInt)
 pthread_once = importProc "pthread_once" pthread_header
 
 pthread_rwlock_destroy :: Def ('[Ref s ('Stored PthreadRWLock)] ':-> CInt)
