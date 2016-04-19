@@ -26,7 +26,7 @@ import Ivory.Artifact
 import Ivory.Compile.C.CmdlineFrontend (runCompiler)
 import Ivory.Language
 import Ivory.OS.Posix.Tower.EventLoop
-import Ivory.OS.Posix.Tower.Threads
+import Ivory.OS.Posix.Tower.Pthread
 import Ivory.Stdlib.Control
 import Ivory.Tower
 import qualified Ivory.Tower.AST as AST
@@ -419,7 +419,7 @@ compileTowerPosixWithOpts makeEnv twr optslist = do
   let initModule = package "tower_init" $ do
         mapM_ depend $ Map.elems moduleMap
         uses_libev
-        uses_libthreads
+        uses_libpthread
         incl entryProc
         private $ do
           forM_ signalHandlers $ \ (handlers, code) -> unGeneratedSignal code $ do
