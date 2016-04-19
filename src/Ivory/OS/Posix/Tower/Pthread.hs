@@ -259,6 +259,74 @@ pthread_getspecific = importProc "pthread_getspecific" pthread_header
 
 
 
+pthread_join ::  Def ('[PthreadType, Ref s ('Stored (Ref s ('Stored VoidType)))] ':-> CInt)
+pthread_join = importProc "pthread_join" pthread_header
+
+pthread_key_create :: Def ('[Ref s ('Stored PthreadKey), CleanupFuncPtr] ':-> CInt)
+pthread_key_create = importProc "pthread_key_create" pthread_header
+
+pthread_key_delete :: Def ('[PthreadKey] ':-> CInt)
+pthread_key_delete = importProc "pthread_key_delete" pthread_header
+
+
+
+pthread_mutex_destroy :: Def ('[Ref s ('Stored PthreadMutex)] ':-> CInt)
+pthread_mutex_destroy = importProc "pthread_mutex_destroy" pthread_header
+
+pthread_mutex_getprioceiling :: Def ('[Ref s ('Stored PthreadMutex), Ref s ('Stored CInt)] ':-> CInt)
+pthread_mutex_getprioceiling = importProc "pthread_mutex_getprioceiling" pthread_header
+
+pthread_mutex_init :: Def ('[Ref s ('Stored PthreadMutex), Ref s ('Stored PthreadMutexAttr)] ':-> CInt)
+pthread_mutex_init = importProc "pthread_mutex_init" pthread_header
+
+pthread_mutex_lock :: Def ('[Ref s ('Stored PthreadMutex)] ':-> CInt)
+pthread_mutex_lock = importProc "pthread_mutex_lock" pthread_header
+
+pthread_mutex_setprioceiling :: Def ('[Ref s ('Stored PthreadMutex), CInt, Ref s ('Stored CInt)] ':-> CInt)
+pthread_mutex_setprioceiling = importProc "pthread_mutex_setprioceiling" pthread_header
+
+pthread_mutex_trylock :: Def ('[Ref s ('Stored PthreadMutex)] ':-> CInt)
+pthread_mutex_trylock = importProc "pthread_mutex_trylock" pthread_header
+
+pthread_mutex_unlock :: Def ('[Ref s ('Stored PthreadMutex)] ':-> CInt)
+pthread_mutex_unlock = importProc "pthread_mutex_unlock" pthread_header
+
+
+
+pthread_mutexattr_destroy :: Def ('[Ref s ('Stored PthreadMutexAttr)] ':-> CInt)
+pthread_mutexattr_destroy = importProc "pthread_mutexattr_destroy" pthread_header
+
+pthread_mutexattr_getprioceiling :: Def ('[Ref s ('Stored PthreadMutexAttr), Ref s ('Stored CInt)] ':-> CInt)
+pthread_mutexattr_getprioceiling = importProc "pthread_mutexattr_getprioceiling" pthread_header
+
+pthread_mutexattr_getprotocol :: Def ('[Ref s ('Stored PthreadMutexAttr), Ref s ('Stored CInt)] ':-> CInt)
+pthread_mutexattr_getprotocol = importProc "pthread_mutexattr_getprotocol" pthread_header
+
+pthread_mutexattr_getpshared :: Def ('[Ref s ('Stored PthreadMutexAttr), Ref s ('Stored CInt)] ':-> CInt)
+pthread_mutexattr_getpshared = importProc "pthread_mutexattr_getpshared" pthread_header
+
+pthread_mutexattr_gettype :: Def ('[Ref s ('Stored PthreadMutexAttr), Ref s ('Stored CInt)] ':-> CInt)
+pthread_mutexattr_gettype = importProc "pthread_mutexattr_gettype" pthread_header
+
+pthread_mutexattr_init :: Def ('[Ref s ('Stored PthreadMutexAttr)] ':-> CInt)
+pthread_mutexattr_init = importProc "pthread_mutexattr_init" pthread_header
+
+pthread_mutexattr_setprioceiling :: Def ('[Ref s ('Stored PthreadMutexAttr), CInt] ':-> CInt)
+pthread_mutexattr_setprioceiling = importProc "pthread_mutexattr_setprioceiling" pthread_header
+
+pthread_mutexattr_setprotocol :: Def ('[Ref s ('Stored PthreadMutexAttr), CInt] ':-> CInt)
+pthread_mutexattr_setprotocol = importProc "pthread_mutexattr_setprotocol" pthread_header
+
+pthread_mutexattr_setpshared :: Def ('[Ref s ('Stored PthreadMutexAttr), CInt] ':-> CInt)
+pthread_mutexattr_setpshared = importProc "pthread_mutexattr_setpshared" pthread_header
+
+pthread_mutexattr_settype :: Def ('[Ref s ('Stored PthreadMutexAttr), CInt] ':-> CInt)
+pthread_mutexattr_settype = importProc "pthread_mutexattr_settype" pthread_header
+
+
+
+
+
 
 uses_libpthread :: ModuleDef
 uses_libpthread = do
@@ -330,3 +398,28 @@ uses_libpthread = do
   incl pthread_getconcurrency
   incl pthread_getschedparam
   incl pthread_getspecific
+
+  incl pthread_join
+  incl pthread_key_create
+  incl pthread_key_delete
+
+  incl pthread_mutex_destroy
+  incl pthread_mutex_getprioceiling
+  incl pthread_mutex_init
+  incl pthread_mutex_lock
+  incl pthread_mutex_setprioceiling
+  incl pthread_mutex_trylock
+  incl pthread_mutex_unlock
+
+  incl pthread_mutexattr_destroy
+  incl pthread_mutexattr_getprioceiling
+  incl pthread_mutexattr_getprotocol
+  incl pthread_mutexattr_getpshared
+  incl pthread_mutexattr_gettype
+  incl pthread_mutexattr_init
+  incl pthread_mutexattr_setprioceiling
+  incl pthread_mutexattr_setprotocol
+  incl pthread_mutexattr_setpshared
+  incl pthread_mutexattr_settype
+
+  
