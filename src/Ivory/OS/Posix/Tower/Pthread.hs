@@ -99,6 +99,7 @@ type ThreadFuncPtr s = ProcPtr ('[Ref s ('Stored VoidType)] ':-> Ref s ('Stored 
 
 type CleanupFuncPtr s = ProcPtr ('[Ref s ('Stored VoidType)] ':-> ())
 
+type OnceFuncPtr s = ProcPtr ('[] ':-> ())
 
 pthread_CANCEL_ASYNCHRONOUS, pthread_CANCEL_ENABLE, pthread_CANCEL_DEFERRED, pthread_CANCEL_DISABLE, pthread_CANCELED :: CInt
 pthread_COND_INITIALIZER, pthread_CREATE_DETACHED, pthread_CREATE_JOINABLE, pthread_EXPLICIT_SCHED, pthread_INHERIT_SCHED :: CInt
@@ -325,7 +326,64 @@ pthread_mutexattr_settype = importProc "pthread_mutexattr_settype" pthread_heade
 
 
 
+pthread_once :: Def ('[Ref s ('Stored PthreadOnce), OnceFuncPtr] ':-> CInt)
+pthread_once = importProc "pthread_once" pthread_header
 
+pthread_rwlock_destroy :: Def ('[Ref s ('Stored PthreadRWLock)] ':-> CInt)
+pthread_rwlock_destroy = importProc "pthread_rwlock_destroy" pthread_header
+
+pthread_rwlock_init :: Def ('[Ref s ('Stored PthreadRWLock), Ref s ('Stored PthreadRWLockAttr)] ':-> CInt)
+pthread_rwlock_init = importProc "pthread_rwlock_init" pthread_header
+
+pthread_rwlock_rdlock :: Def ('[Ref s ('Stored PthreadRWLock)] ':-> CInt)
+pthread_rwlock_rdlock = importProc "pthread_rwlock_rdlock" pthread_header
+
+pthread_rwlock_tryrdlock :: Def ('[Ref s ('Stored PthreadRWLock)] ':-> CInt)
+pthread_rwlock_tryrdlock = importProc "pthread_rwlock_tryrdlock" pthread_header
+
+pthread_rwlock_trywrlock :: Def ('[Ref s ('Stored PthreadRWLock)] ':-> CInt)
+pthread_rwlock_trywrlock = importProc "pthread_rwlock_trywrlock" pthread_header
+
+pthread_rwlock_unlock :: Def ('[Ref s ('Stored PthreadRWLock)] ':-> CInt)
+pthread_rwlock_unlock = importProc "pthread_rwlock_unlock" pthread_header
+
+pthread_rwlock_wrlock :: Def ('[Ref s ('Stored PthreadRWLock)] ':-> CInt)
+pthread_rwlock_wrlock = importProc "pthread_rwlock_trywrlock" pthread_header
+
+pthread_rwlockattr_destroy :: Def ('[Ref s ('Stored PthreadRWLockAttr)] ':-> CInt)
+pthread_rwlockattr_destroy = importProc "pthread_rwlockattr_destroy" pthread_header
+
+pthread_rwlockattr_getpshared :: Def ('[Ref s ('Stored PthreadRWLockAttr), Ref s ('Stored CInt)] ':-> CInt)
+pthread_rwlockattr_getpshared = importProc "pthread_rwlockattr_getpshared" pthread_header
+
+pthread_rwlockattr_init :: Def ('[Ref s ('Stored PthreadRWLockAttr)] ':-> CInt)
+pthread_rwlockattr_init = importProc "pthread_rwlockattr_init" pthread_header
+
+pthread_rwlockattr_setpshared :: Def ('[Ref s ('Stored PthreadRWLockAttr), CInt] ':-> CInt)
+pthread_rwlockattr_setpshared = importProc "pthread_rwlockattr_setpshared" pthread_header
+
+
+
+pthread_self :: Def ('[] ':-> PthreadType)
+pthread_self = importProc "pthread_self" pthread_header
+
+pthread_setcancelstate :: Def ('[CInt, Ref s ('Stored CInt)] ':-> CInt)
+pthread_setcancelstate = importProc "pthread_setcancelstate" pthread_header
+
+pthread_setcanceltype :: Def ('[CInt, Ref s ('Stored CInt)] ':-> CInt)
+pthread_setcanceltype = importProc "pthread_setcanceltype" pthread_header
+
+pthread_setconcurrency :: Def ('[CInt] ':-> CInt)
+pthread_setconcurrency = importProc "pthread_setconcurrency" pthread_header
+
+pthread_setschedparam :: Def ('[PthreadType, CInt, Ref s ('Struct "sched_param")] ':-> CInt)
+pthread_setschedparam = importProc "pthread_setschedparam" pthread_header
+
+pthread_setspecific :: Def ('[PthreadKey, Ref s ('Stored VoidType)] ':-> CInt)
+pthread_setspecific = importProc "pthread_setspecific" pthread_header
+
+pthread_testcancel :: Def ('[] ':-> ())
+pthread_testcancel = importProc "pthread_testcancel" pthread_header
 
 
 uses_libpthread :: ModuleDef
@@ -422,4 +480,24 @@ uses_libpthread = do
   incl pthread_mutexattr_setpshared
   incl pthread_mutexattr_settype
 
+  incl pthread_once
+  incl pthread_rwlock_destroy
+  incl pthread_rwlock_init
+  incl pthread_rwlock_rdlock
+  incl pthread_rwlock_tryrdlock
+  incl pthread_rwlock_trywrlock
+  incl pthread_rwlock_unlock
+  incl pthread_rwlock_wrlock
+  incl pthread_rwlockattr_destroy
+  incl pthread_rwlockattr_getpshared
+  incl pthread_rwlockattr_init
+  incl pthread_rwlockattr_setpshared
+
+  incl pthread_self
+  incl pthread_setcancelstate
+  incl pthread_setcanceltype
+  incl pthread_setconcurrency
+  incl pthread_setschedparam
+  incl pthread_setspecific
+  incl pthread_testcancel
 
