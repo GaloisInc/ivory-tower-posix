@@ -262,7 +262,7 @@ pthread_getspecific = importProc "pthread_getspecific" pthread_header
 pthread_join ::  Def ('[PthreadType, Ref s ('Stored (Ref s ('Stored VoidType)))] ':-> CInt)
 pthread_join = importProc "pthread_join" pthread_header
 
-pthread_key_create :: Def ('[Ref s ('Stored PthreadKey), CleanupFuncPtr] ':-> CInt)
+pthread_key_create :: Def ('[Ref s ('Stored PthreadKey), CleanupFuncPtr s2] ':-> CInt)
 pthread_key_create = importProc "pthread_key_create" pthread_header
 
 pthread_key_delete :: Def ('[PthreadKey] ':-> CInt)
@@ -422,4 +422,4 @@ uses_libpthread = do
   incl pthread_mutexattr_setpshared
   incl pthread_mutexattr_settype
 
-  
+
