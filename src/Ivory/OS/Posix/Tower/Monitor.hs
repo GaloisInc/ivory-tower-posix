@@ -10,8 +10,6 @@ module Ivory.OS.Posix.Tower.Monitor
     monitorLockProc
   ) where
 
-import Ivory.Tower.Types.Dependencies
-
 import qualified Ivory.Tower.AST as AST
 
 import Ivory.Language
