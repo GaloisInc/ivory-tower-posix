@@ -18,6 +18,7 @@ library
                        Ivory.OS.Posix.Tower.Signal
   other-modules:       Ivory.OS.Posix.Tower.EventLoop,
                        Ivory.OS.Posix.Tower.Pthread
+                       Ivory.OS.Posix.Tower.Monitor
   build-depends:       base >=4.7 && <5,
                        base-compat >= 0.6,
                        containers,

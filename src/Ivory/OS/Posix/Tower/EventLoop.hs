@@ -7,6 +7,7 @@
 module Ivory.OS.Posix.Tower.EventLoop where
 
 import Ivory.Language
+import Ivory.Language.Proc
 
 ev_header :: String
 ev_header = "ev.h"
@@ -15,6 +16,7 @@ ev_header = "ev.h"
 abstract struct ev_loop "ev.h"
 abstract struct ev_timer "ev.h"
 abstract struct ev_io "ev.h"
+abstract struct ev_periodic "ev.h"
 |]
 
 ev_READ, ev_WRITE, ev_TIMER, ev_ERROR :: Uint32
@@ -22,6 +24,12 @@ ev_READ = extern "EV_READ" ev_header
 ev_WRITE = extern "EV_WRITE" ev_header
 ev_TIMER = extern "EV_TIMER" ev_header
 ev_ERROR = extern "EV_ERROR" ev_header
+
+null_Ptr_Resch :: ReschedulePtr s2
+null_Ptr_Resch = procPtr null_Resch_Func
+
+null_Resch_Func :: Def ('[Ref s2 ('Struct "ev_periodic"), IDouble] ':-> IDouble)
+null_Resch_Func = importProc "NULL" "stddef.h"
 
 ev_BREAK_ALL :: Sint32
 ev_BREAK_ALL = extern "EVBREAK_ALL" ev_header
@@ -43,11 +51,20 @@ ev_unref = importProc "ev_unref" ev_header
 
 type CallbackPtr s2 s3 watcher = ProcPtr ('[Ref s2 ('Struct "ev_loop"), Ref s3 ('Struct watcher), Sint32] ':-> ())
 
+type ReschedulePtr s2 = ProcPtr ('[Ref s2 ('Struct "ev_periodic"), IDouble] ':-> IDouble)
+
+
 ev_timer_init :: Def ('[Ref s1 ('Struct "ev_timer"), CallbackPtr s2 s3 "ev_timer", IDouble, IDouble] ':-> ())
 ev_timer_init = importProc "ev_timer_init" ev_header
 
 ev_timer_start :: Def ('[Ref s1 ('Struct "ev_loop"), Ref s2 ('Struct "ev_timer")] ':-> ())
 ev_timer_start = importProc "ev_timer_start" ev_header
+
+ev_periodic_init :: Def ('[Ref s1 ('Struct "ev_periodic"), CallbackPtr s2 s3 "ev_periodic", IDouble, IDouble, ReschedulePtr s4] ':-> ())
+ev_periodic_init = importProc "ev_periodic_init" ev_header
+
+ev_periodic_start :: Def ('[Ref s1 ('Struct "ev_loop"), Ref s2 ('Struct "ev_periodic")] ':-> ())
+ev_periodic_start = importProc "ev_periodic_start" ev_header
 
 ev_io_init :: Def ('[Ref s1 ('Struct "ev_io"), CallbackPtr s2 s3 "ev_io", Sint32, Uint32] ':-> ())
 ev_io_init = importProc "ev_io_init" ev_header
@@ -75,3 +92,7 @@ uses_libev = do
   incl ev_io_init
   incl ev_io_start
   incl ev_io_stop
+  incl ev_periodic_init
+  incl ev_periodic_start
+
+  incl null_Resch_Func

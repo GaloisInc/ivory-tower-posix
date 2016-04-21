@@ -27,6 +27,7 @@ import Ivory.Compile.C.CmdlineFrontend (runCompiler)
 import Ivory.Language
 import Ivory.OS.Posix.Tower.EventLoop
 import Ivory.OS.Posix.Tower.Pthread
+import Ivory.OS.Posix.Tower.Monitor
 import Ivory.Stdlib.Control
 import Ivory.Tower
 import qualified Ivory.Tower.AST as AST
@@ -36,6 +37,7 @@ import Ivory.Tower.Types.Backend
 import Ivory.Tower.Types.Dependencies
 import Ivory.Tower.Types.Emitter
 import Ivory.Tower.Types.SignalCode
+import Data.List (sort, elemIndex)
 
 
 import qualified Ivory.Language.Module as Mod
@@ -46,7 +48,11 @@ import qualified Ivory.Language.Syntax.Type as TIAST
 import Ivory.Language.MemArea (primAddrOf)
 import Ivory.Language.Proc (initialClosure, genVar)
 import Ivory.Language.MemArea (makeArea)
+import Ivory.Language.Ref
+import Ivory.Language.Ptr
 import qualified Ivory.Stdlib as I
+import qualified Ivory.Language.Init as III
+
 
 data MonitorCode = MonitorCode
   { monitorGenCode :: ModuleDef
@@ -186,9 +192,9 @@ callbackImplTD ast f =
   let inclp = put (mempty { IAST.modProcs   = Mod.visAcc Mod.Public p }) in
   (p, inclp)
 
-emitterImplTD :: AST.Tower -> AST.Emitter -> Maybe EmitterCode
-emitterImplTD tow ast =
-  let handlers = map (handlerImplTD tow) $ subscribedHandlers in
+emitterImplTD :: AST.Tower -> AST.Monitor -> AST.Emitter -> Maybe EmitterCode
+emitterImplTD tow mon ast =
+  let handlers = map (handlerImplTD tow mon) $ subscribedHandlers in
   emitterCodeTD ast [ h | (h, _, _, _) <- handlers ]
 
   where
@@ -285,11 +291,11 @@ emitterCodeTD ast sinks = Just $ EmitterCode
 
 
 -- returns : the IAST.Proc, the initial handler, the moncode, list of handlers subscribed to the emitters.
-handlerImplTD :: AST.Tower -> AST.Handler -> (IAST.Proc, AST.Handler, MonitorCode, [String])
-handlerImplTD tow ast = (h,ast,moncode,concatMap emitterRecipients ems)
+handlerImplTD :: AST.Tower -> AST.Monitor -> AST.Handler -> (IAST.Proc, AST.Handler, MonitorCode, [String])
+handlerImplTD tow m ast = (h,ast,moncode,concatMap emitterRecipients ems)
     where
     emitters::[Maybe EmitterCode]
-    emitters = map (emitterImplTD tow) $ AST.handler_emitters ast
+    emitters = map (emitterImplTD tow m) $ AST.handler_emitters ast
     callbacks::(NE.NonEmpty (IAST.Proc, ModuleDef)) 
     callbacks = NE.map (\(x,y) -> callbackImplTD x y) (NE.zip (AST.handler_callbacks ast) (AST.handler_callbacksAST ast))
     ems = [e | Just e <- emitters]
@@ -305,14 +311,25 @@ handlerImplTD tow ast = (h,ast,moncode,concatMap emitterRecipients ems)
         (var,_) = genVar initialClosure -- initial closure is ok until we have one argument per function
         emitterscodeinit = snd $ Mon.primRunIvory $ mapM_ emitterInit ems
         emittersdeliver = snd $ Mon.primRunIvory $ mapM_ emitterDeliver ems
+        monitorlockproc = snd $ Mon.primRunIvory $ monitorLockProc m ast
+        monitorunlockproc = snd $ Mon.primRunIvory $ monitorUnlockProc m ast
         blocReq = Mon.blockRequires emitterscodeinit ++
+          (Mon.blockRequires monitorlockproc) ++
+          (Mon.blockRequires monitorunlockproc) ++
           (Mon.blockRequires emittersdeliver)
         blocEns = Mon.blockEnsures emitterscodeinit ++
+          (Mon.blockEnsures monitorlockproc) ++
+          (Mon.blockEnsures monitorunlockproc) ++
           (Mon.blockEnsures emittersdeliver)
         blocBody = 
+          [IAST.Comment $ IAST.UserComment "init emitters"] ++ 
           (Mon.blockStmts $ emitterscodeinit) ++ 
+          [IAST.Comment $ IAST.UserComment "take monitor lock(s)"] ++
+          (Mon.blockStmts $ monitorlockproc) ++       
           [IAST.Comment $ IAST.UserComment "run callbacks"] ++
           (NE.toList $ NE.map (\ cb -> (IAST.Call (IAST.procRetTy cb) Nothing (IAST.NameSym $ IAST.procSym cb) [TIAST.Typed (TIAST.tType $ head $ IAST.procArgs $ NE.head cbs) $ IAST.ExpVar var])) cbs )++
+          [IAST.Comment $ IAST.UserComment "release monitor lock(s)"] ++
+          (Mon.blockStmts $ monitorunlockproc) ++ 
           [IAST.Comment $ IAST.UserComment "deliver emitters"] ++
           (Mon.blockStmts $ emittersdeliver)
     moncode = MonitorCode
@@ -328,7 +345,7 @@ monitorImplTD tow ast =
   PosixMonitor fromModuleMap
     where
     (moddef::ModuleDef) = put $ AST.monitor_moduledef ast 
-    handlers = map (handlerImplTD tow) $ AST.monitor_handlers ast
+    handlers = map (handlerImplTD tow ast) $ AST.monitor_handlers ast
     monitorRecipients = concat [ recipient | (_,_,_,recipient) <- handlers ]
     mods = mconcat [ code | (_,_,code,_) <- handlers ]
     chanMap = Map.fromListWith (++)
@@ -339,12 +356,14 @@ monitorImplTD tow ast =
       thisModuleMap = Map.fromList
         [ ("handler_run_" ++ (AST.handlerName hast), genMod) | (_,hast,_,_) <- handlers ]
       otherModuleMap = moduleMap Map.\\ thisModuleMap
-      genMod = package ("tower_gen_" ++ AST.monitorName ast) $ do
+      genMod = package (monitorGenModName ast) $ do
         depend userMod
         mapM_ depend $ dependencies_depends deps
         mapM_ depend $ mapMaybe (flip Map.lookup otherModuleMap) monitorRecipients
         monitorGenCode mods
-      userMod = package ("tower_user_" ++ AST.monitorName ast) $ do
+        uses_libpthread
+        monitorGenPackage ast
+      userMod = package (monitorUserModName ast) $ do
         depend genMod
         mapM_ depend $ dependencies_depends deps
         private moddef
@@ -371,14 +390,45 @@ compileTowerPosixWithOpts makeEnv twr optslist = do
 
   let chanMap = Map.unionsWith (++) chanMaps
 
-  let itimeStub :: String -> Def ('[ConstRef s ('Stored ITime)] ':-> ())
-      itimeStub name = proc name $ const $ body $ return ()
+  let itimeStub :: String -> Def ('[Ref s ('Stored VoidType)] ':-> Ref s2 ('Stored VoidType))
+      itimeStub name = proc name $ \ _ -> body $ ret (ptrToRef nullPtr)
+
+  let periods = sort $ map fst $ Map.toList chanMap
 
   let callHandlers main_loop names = do
+--        let (Just prio) = elemIndex (AST.ChanPeriod per) periods
         now <- call ev_now main_loop
         t_ptr <- fmap constRef $ local $ ival $
           fromIMicroseconds (castDefault $ now * 1e6 :: Sint64)
-        forM_ names $ \ name -> call_ (itimeStub name) t_ptr
+
+        comment "creating attribute"
+        (pthreadattribute::Ref ('Stack s1) ('Stored PthreadAttr)) <- local (inewtype)
+        attrinitReturn <- call pthread_attr_init pthreadattribute
+        assert (attrinitReturn ==? 0)
+
+        comment "setting the policy scheduling to Round Robin (SCHED_RR)"
+        attrsetschpolReturn <- call pthread_attr_setschedpolicy pthreadattribute sched_RR
+        assert (attrsetschpolReturn ==? 0)
+
+        comment "allocating pthread_t"
+        pthreads <- mapM (\_ -> local (inewtype)) names
+
+        comment "creating threads"
+        forM_ (zip pthreads names) $ \ (thr,name) -> do
+          pthreadCreateReturn <- call pthread_create thr pthreadattribute 
+                                      (procPtr $ itimeStub name) (Ref (getConstRef t_ptr))
+          assert (pthreadCreateReturn ==? 0)
+
+        comment "joining threads"
+        forM_ (pthreads) $ \ (thr) -> do
+          curthr <- deref thr
+          pthreadJoinReturn <- call pthread_join curthr (ptrToRef nullPtr)
+          assert (pthreadJoinReturn ==? 0)
+
+        --(forM_ names $ \ name -> call_ (itimeStub name) t_ptr)
+        comment "destroying attribute"
+        attrdestroyReturn <- call pthread_attr_destroy pthreadattribute
+        assert (attrdestroyReturn ==? 0)
 
   let signalChannels = Map.fromAscList
         [ (AST.signal_name s, xs)
@@ -386,6 +436,7 @@ compileTowerPosixWithOpts makeEnv twr optslist = do
         ]
 
   let signalHandlers = Map.elems $ Map.intersectionWith (,) signalChannels $ signalcode_signals sigs
+
 
   let periodicHandlers = do
         (AST.ChanPeriod p, names) <- Map.toList chanMap
@@ -399,20 +450,26 @@ compileTowerPosixWithOpts makeEnv twr optslist = do
 
   let entryProc = proc "main" $ body $ do
         main_loop <- call ev_default_loop 0
+        comment "Initializing monitors"
+        forM_ (AST.tower_monitors ast) $ \ mon -> do
+          call_ (monitorInitProc mon)
 
+        comment "Initializing periods"
         forM_ periodicHandlers $ \ (p, cb) -> do
           watcher <- local izero
           let dtime t = (fromInteger $ toMicroseconds t) / 1.0e6
-          call_ ev_timer_init watcher (procPtr cb)
+          call_ ev_periodic_init watcher (procPtr cb)
             (dtime $ AST.period_phase p)
             (dtime $ AST.period_dt p)
-          call_ ev_timer_start main_loop watcher
-          comment "Don't let this periodic thread keep the main loop running."
-          call_ ev_unref main_loop
+            (null_Ptr_Resch)
+          call_ ev_periodic_start main_loop watcher
 
+
+        comment "Initializing signals"
         signalcode_init sigs
         maybe (return ()) (callHandlers main_loop) $ Map.lookup (AST.ChanInit AST.Init) chanMap
 
+        comment "Starting the main loop"
         call_ ev_run main_loop 0
         ret (0 :: Sint32)
 
