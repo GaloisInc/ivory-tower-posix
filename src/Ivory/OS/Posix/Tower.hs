@@ -37,7 +37,6 @@ import Ivory.Tower.Types.Backend
 import Ivory.Tower.Types.Dependencies
 import Ivory.Tower.Types.Emitter
 import Ivory.Tower.Types.SignalCode
-import Data.List (sort)
 
 import qualified Ivory.Language.Module as Mod
 import qualified Ivory.Language.Monad as Mon
