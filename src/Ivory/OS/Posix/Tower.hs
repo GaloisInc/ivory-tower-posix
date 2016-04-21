@@ -40,6 +40,11 @@ import Ivory.Tower.Types.SignalCode
 import Data.List (sort, elemIndex)
 
 
+import MonadLib (StateT,WriterT,Id)
+import qualified MonadLib
+import qualified Ivory.Language.Effects as E
+import Ivory.Language.Monad
+
 import qualified Ivory.Language.Module as Mod
 import qualified Ivory.Language.Monad as Mon
 import qualified Ivory.Language.Syntax.AST as IAST
@@ -289,7 +294,6 @@ emitterCodeTD ast sinks = Just $ EmitterCode
   named suffix = showUnique (AST.emitter_name ast) ++ "_" ++ suffix
 
 
-
 -- returns : the IAST.Proc, the initial handler, the moncode, list of handlers subscribed to the emitters.
 handlerImplTD :: AST.Tower -> AST.Monitor -> AST.Handler -> (IAST.Proc, AST.Handler, MonitorCode, [String])
 handlerImplTD tow m ast = (h,ast,moncode,concatMap emitterRecipients ems)
@@ -309,10 +313,10 @@ handlerImplTD tow m ast = (h,ast,moncode,concatMap emitterRecipients ems)
                   }
       where
         (var,_) = genVar initialClosure -- initial closure is ok until we have one argument per function
-        emitterscodeinit = snd $ Mon.primRunIvory $ mapM_ emitterInit ems
-        emittersdeliver = snd $ Mon.primRunIvory $ mapM_ emitterDeliver ems
-        monitorlockproc = snd $ Mon.primRunIvory $ monitorLockProc m ast
-        monitorunlockproc = snd $ Mon.primRunIvory $ monitorUnlockProc m ast
+        ((_,emitterscodeinit),n1) = customRunIvory 0 $ mapM_ emitterInit ems
+        ((_,monitorlockproc),n2) = customRunIvory n1 $ monitorLockProc m ast
+        ((_,monitorunlockproc),n3) = customRunIvory n2 $ monitorUnlockProc m ast
+        ((_,emittersdeliver),n4) = customRunIvory n3 $ mapM_ emitterDeliver ems
         blocReq = Mon.blockRequires emitterscodeinit ++
           (Mon.blockRequires monitorlockproc) ++
           (Mon.blockRequires monitorunlockproc) ++
