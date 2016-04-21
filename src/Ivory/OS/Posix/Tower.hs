@@ -37,13 +37,7 @@ import Ivory.Tower.Types.Backend
 import Ivory.Tower.Types.Dependencies
 import Ivory.Tower.Types.Emitter
 import Ivory.Tower.Types.SignalCode
-import Data.List (sort, elemIndex)
-
-
-import MonadLib (StateT,WriterT,Id)
-import qualified MonadLib
-import qualified Ivory.Language.Effects as E
-import Ivory.Language.Monad
+import Data.List (sort)
 
 import qualified Ivory.Language.Module as Mod
 import qualified Ivory.Language.Monad as Mon
@@ -313,10 +307,10 @@ handlerImplTD tow m ast = (h,ast,moncode,concatMap emitterRecipients ems)
                   }
       where
         (var,_) = genVar initialClosure -- initial closure is ok until we have one argument per function
-        ((_,emitterscodeinit),n1) = customRunIvory 0 $ mapM_ emitterInit ems
-        ((_,monitorlockproc),n2) = customRunIvory n1 $ monitorLockProc m ast
-        ((_,monitorunlockproc),n3) = customRunIvory n2 $ monitorUnlockProc m ast
-        ((_,emittersdeliver),n4) = customRunIvory n3 $ mapM_ emitterDeliver ems
+        ((_,emitterscodeinit),n1) = Mon.primRunIvory 0 $ mapM_ emitterInit ems
+        ((_,monitorlockproc),n2) = Mon.primRunIvory n1 $ monitorLockProc m ast
+        ((_,monitorunlockproc),n3) = Mon.primRunIvory n2 $ monitorUnlockProc m ast
+        ((_,emittersdeliver),_n4) = Mon.primRunIvory n3 $ mapM_ emitterDeliver ems
         blocReq = Mon.blockRequires emitterscodeinit ++
           (Mon.blockRequires monitorlockproc) ++
           (Mon.blockRequires monitorunlockproc) ++
