@@ -7,7 +7,6 @@
 module Ivory.OS.Posix.Tower.EventLoop where
 
 import Ivory.Language
-import Ivory.Language.Proc
 
 ev_header :: String
 ev_header = "ev.h"

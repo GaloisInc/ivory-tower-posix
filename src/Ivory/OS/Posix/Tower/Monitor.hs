@@ -68,7 +68,10 @@ monitorInitProc mon =
 monitorInitProcRaw :: AST.Monitor -> Def('[]':->())
 monitorInitProcRaw mon = proc n $ body $ do
   pthreadattr <- local inewtype
-  call_ pthread_mutex_init (monitorLock mon) pthreadattr
+  returnAttrInit <- call pthread_mutexattr_init pthreadattr
+  assert (returnAttrInit ==? 0)
+  returnInit <- call pthread_mutex_init (monitorLock mon) pthreadattr
+  assert (returnInit ==? 0)
   where
   n = "monitor_init_" ++ AST.monitorName mon
 
@@ -77,7 +80,11 @@ monitorInitProcLockCoarsening mon = proc n $ body $ do
   if (length globmon /= 0)
     then do
       pthreadattr <- local inewtype
-      traverse_ (\x -> call_ pthread_mutex_init x pthreadattr) $ map (monitorLockWithCoarsening mon) [1..(length $ globmon)]
+      returnAttrInit <- call pthread_mutexattr_init pthreadattr
+      assert (returnAttrInit ==? 0)
+      forM_ (map (monitorLockWithCoarsening mon) [1..(length $ globmon)]) $ \x -> do
+        returnInit <- call pthread_mutex_init x pthreadattr
+        assert (returnInit ==? 0)
     else
       return ()
   where
