@@ -499,8 +499,8 @@ parseTowerPosixWithOpts makeEnv twr optslist = do
 makefile :: [Module] -> Located Artifact
 makefile modules = Root $ artifactString "Makefile" $ unlines
   [ "CC = gcc"
-  , "CFLAGS = -Wall -std=gnu99 -O2 -pthread -g -I. -DIVORY_TEST"
-  , "LDLIBS = -lm -lev"
+  , "CFLAGS = -Wall -std=gnu99 -O2 -g -I. -DIVORY_TEST"
+  , "LDLIBS = -lm -lev -pthread"
   , "OBJS = " ++ intercalate " " [ moduleName m ++ ".o" | m <- modules ]
   , moduleName (head modules) ++ ": $(OBJS)"
   , "clean:"
