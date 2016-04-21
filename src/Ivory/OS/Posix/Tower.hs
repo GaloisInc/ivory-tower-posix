@@ -50,7 +50,6 @@ import Ivory.Language.MemArea (makeArea)
 import Ivory.Language.Ref
 import Ivory.Language.Ptr
 import qualified Ivory.Stdlib as I
-import qualified Ivory.Language.Init as III
 
 
 data MonitorCode = MonitorCode
@@ -391,7 +390,7 @@ compileTowerPosixWithOpts makeEnv twr optslist = do
   let itimeStub :: String -> Def ('[Ref s ('Stored VoidType)] ':-> Ref s2 ('Stored VoidType))
       itimeStub name = proc name $ \ _ -> body $ ret (ptrToRef nullPtr)
 
-  let periods = sort $ map fst $ Map.toList chanMap
+--  let periods = sort $ map fst $ Map.toList chanMap
 
   let callHandlers main_loop names = do
 --        let (Just prio) = elemIndex (AST.ChanPeriod per) periods
