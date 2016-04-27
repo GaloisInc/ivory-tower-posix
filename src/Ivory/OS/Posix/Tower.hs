@@ -386,8 +386,8 @@ compileTowerPosixWithOpts makeEnv twr optslist = do
 
   let chanMap = Map.unionsWith (++) chanMaps
 
-  let itimeStub :: String -> Def ('[Ref s ('Stored VoidType)] ':-> Ref s2 ('Stored VoidType))
-      itimeStub name = proc name $ \ _ -> body $ ret (ptrToRef nullPtr)
+  let itimeStub :: String -> Def ('[Ref s ('Stored Sint64)] ':-> ())
+      itimeStub name = proc name $ \ _ -> body $ retVoid
 
 --  let periods = sort $ map fst $ Map.toList chanMap
 
@@ -411,8 +411,9 @@ compileTowerPosixWithOpts makeEnv twr optslist = do
 
         comment "creating threads"
         forM_ (zip pthreads names) $ \ (thr,name) -> do
+          itimeStubvoidptr <- call pthread_cast_voidfunc_fromint (procPtr $ itimeStub name)
           pthreadCreateReturn <- call pthread_create thr pthreadattribute 
-                                      (procPtr $ itimeStub name) (Ref (getConstRef t_ptr))
+                                      (itimeStubvoidptr) (Ref (getConstRef t_ptr))
           assert (pthreadCreateReturn ==? 0)
 
         comment "joining threads"
@@ -500,7 +501,7 @@ makefile :: [Module] -> Located Artifact
 makefile modules = Root $ artifactString "Makefile" $ unlines
   [ "CC = gcc"
   , "CFLAGS = -Wall -std=gnu99 -O2 -g -I. -DIVORY_TEST"
-  , "LDLIBS = -lm -lev -pthread"
+  , "LDLIBS = -lm -lev -pthread -lwiringPi"
   , "OBJS = " ++ intercalate " " [ moduleName m ++ ".o" | m <- modules ]
   , moduleName (head modules) ++ ": $(OBJS)"
   , "clean:"

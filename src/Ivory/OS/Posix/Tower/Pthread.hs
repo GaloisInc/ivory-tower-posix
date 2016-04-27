@@ -165,6 +165,9 @@ pthread_RWLOCK_INITIALIZER  = extern "PTHREAD_RWLOCK_INITIALIZER" pthread_header
 pthread_SCOPE_PROCESS       = extern "PTHREAD_SCOPE_PROCESS" pthread_header
 pthread_SCOPE_SYSTEM        = extern "PTHREAD_SCOPE_SYSTEM" pthread_header
 
+pthread_cast_voidfunc_fromint :: Def ('[ProcPtr ('[Ref s ('Stored Sint64)] ':-> ())] ':-> ThreadFuncPtr s)
+pthread_cast_voidfunc_fromint = importProc "(void* (*) (void*))" pthread_header
+
 
 
 pthread_attr_destroy :: Def ('[Ref s ('Stored PthreadAttr)] ':-> CInt)
@@ -444,7 +447,10 @@ uses_libpthread = do
   inclSym pthread_PROCESS_PRIVATE    
   inclSym pthread_RWLOCK_INITIALIZER 
   inclSym pthread_SCOPE_PROCESS      
-  inclSym pthread_SCOPE_SYSTEM     
+  inclSym pthread_SCOPE_SYSTEM   
+
+
+  incl pthread_cast_voidfunc_fromint 
 
   incl pthread_attr_destroy
   incl pthread_attr_getdetachstate

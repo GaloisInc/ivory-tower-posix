@@ -15,9 +15,10 @@ library
   exposed-modules:     Ivory.OS.Posix.Tower,
                        Ivory.OS.Posix.Tower.IO,
                        Ivory.OS.Posix.Tower.Serial,
-                       Ivory.OS.Posix.Tower.Signal
+                       Ivory.OS.Posix.Tower.Signal,
+                       Ivory.OS.Posix.Tower.Lib.WiringPi
   other-modules:       Ivory.OS.Posix.Tower.EventLoop,
-                       Ivory.OS.Posix.Tower.Pthread
+                       Ivory.OS.Posix.Tower.Pthread,
                        Ivory.OS.Posix.Tower.Monitor
   build-depends:       base >=4.7 && <5,
                        base-compat >= 0.6,
