@@ -8,7 +8,6 @@ module Ivory.OS.Posix.Tower.Lib.WiringPi where
 
 
 import Ivory.Language
-import Ivory.Language.Type
 
 wiringPi_header :: String
 wiringPi_header = "wiringPi.h"
