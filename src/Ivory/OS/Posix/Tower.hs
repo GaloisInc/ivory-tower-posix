@@ -157,7 +157,7 @@ compileTowerPosix :: (TOpts -> IO e) -> Tower e () -> IO ()
 compileTowerPosix makeEnv twr = do
   (copts, topts) <- towerGetOpts
   env <- makeEnv topts
-  let (_ast, PosixOutput monitors, deps, sigs) = runTower PosixBackend twr env
+  let (_ast, PosixOutput monitors, deps, sigs) = runTower_ PosixBackend twr env
 
   let moduleMap = Map.unions moduleMaps
       (moduleMaps, chanMaps, monitorModules) = unzip3
