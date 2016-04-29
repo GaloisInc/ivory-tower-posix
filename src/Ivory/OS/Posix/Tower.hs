@@ -402,9 +402,27 @@ compileTowerPosixWithOpts makeEnv twr optslist = do
         attrinitReturn <- call pthread_attr_init pthreadattribute
         assert (attrinitReturn ==? 0)
 
-        comment "setting the policy scheduling to Round Robin (SCHED_RR)"
-        attrsetschpolReturn <- call pthread_attr_setschedpolicy pthreadattribute sched_RR
+        comment "getting min and max priority values for the scheduling policy (SCHED_RR)"
+        let policySched = sched_RR
+        minPrio <- call sched_get_priority_min policySched
+        maxPrio <- call sched_get_priority_max policySched
+
+        comment "setting the policy scheduling"
+        attrsetschpolReturn <- call pthread_attr_setschedpolicy pthreadattribute policySched
         assert (attrsetschpolReturn ==? 0)
+
+        comment "setting the inheritsched attribute (PTHREAD_EXPLICIT_SCHED)"
+        attrsetinheritReturn <- call pthread_attr_setinheritsched pthreadattribute pthread_EXPLICIT_SCHED
+        assert (attrsetinheritReturn ==? 0)
+
+
+
+
+
+        comment "allocating the sched_param struct and initializing"
+        schedparam <- local izero
+        retGetSchedparam <- call pthread_attr_getschedparam pthreadattribute schedparam
+        assert(retGetSchedparam ==? 0)
 
         comment "allocating pthread_t"
         pthreads <- mapM (\_ -> local (inewtype)) names

@@ -67,9 +67,15 @@ monitorInitProc mon =
 
 monitorInitProcRaw :: AST.Monitor -> Def('[]':->())
 monitorInitProcRaw mon = proc n $ body $ do
+  comment "Creating mutex attribute and initializing it"
   pthreadattr <- local inewtype
   returnAttrInit <- call pthread_mutexattr_init pthreadattr
   assert (returnAttrInit ==? 0)
+  comment "set mutex attribute protocol to Priority inherit"
+  returnAttrProtocol <- call pthread_mutexattr_setprotocol pthreadattr pthread_PRIO_INHERIT
+  assert(returnAttrProtocol ==? 0)
+
+  comment "initializing the mutex (global var) with the attribute"
   returnInit <- call pthread_mutex_init (monitorLock mon) pthreadattr
   assert (returnInit ==? 0)
   where

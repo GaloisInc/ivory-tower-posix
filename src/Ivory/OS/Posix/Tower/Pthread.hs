@@ -422,6 +422,16 @@ pthread_testcancel :: Def ('[] ':-> ())
 pthread_testcancel = importProc "pthread_testcancel" pthread_header
 
 
+
+
+
+
+sched_get_priority_max :: Def ('[CInt] ':-> (CInt))
+sched_get_priority_max = importProc "sched_get_priority_max" sched_header
+
+sched_get_priority_min :: Def ('[CInt] ':-> (CInt))
+sched_get_priority_min = importProc "sched_get_priority_min" sched_header
+
 uses_libpthread :: ModuleDef
 uses_libpthread = do
   inclSym pthread_CANCEL_ASYNCHRONOUS
@@ -545,3 +555,6 @@ uses_libpthread = do
   inclSym sched_OTHER 
   inclSym sched_RR      
   inclSym sched_FIFO    
+
+  incl sched_get_priority_min
+  incl sched_get_priority_max
