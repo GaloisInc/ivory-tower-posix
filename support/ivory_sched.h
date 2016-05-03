@@ -19,11 +19,7 @@ extern "C" {
 
 /* DEFINING PTHREAD_PRIO_INHERIT in case of not defined */
 #ifndef PTHREAD_PRIO_INHERIT
-#ifndef PTHREAD_PRIO_NONE
-#define PTHREAD_PRIO_NONE 0
-#else
-#define PTHREAD_PRIO_INHERIT PTHREAD_PRIO_NONE
-#endif
+#define PTHREAD_PRIO_INHERIT 0
 #endif
 
 static inline void ivory_sched_param_priority(struct sched_param* attr, int value)
