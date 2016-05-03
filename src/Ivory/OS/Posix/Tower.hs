@@ -537,7 +537,7 @@ parseTowerPosixWithOpts makeEnv twr optslist = do
 
 makefile :: [Module] -> Located Artifact
 makefile modules = Root $ artifactString "Makefile" $ unlines
-  [ "include make.mk"
+  [ "-include make.mk"
   , "CC = gcc"
   , "CFLAGS ?= -Wall -std=gnu99 -O2 -g -I. -DIVORY_TEST"
   , "LDLIBS = -lm -lev -pthread -lwiringPi"
