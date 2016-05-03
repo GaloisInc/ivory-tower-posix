@@ -22,6 +22,7 @@ import MonadLib (put)
 import qualified Data.List.NonEmpty as NE
 import qualified Data.Map as Map
 import Data.Maybe
+import Data.List (sort, elemIndex)
 import Ivory.Artifact
 import Ivory.Compile.C.CmdlineFrontend (runCompiler)
 import Ivory.Language
@@ -389,10 +390,10 @@ compileTowerPosixWithOpts makeEnv twr optslist = do
   let itimeStub :: String -> Def ('[Ref s ('Stored Sint64)] ':-> ())
       itimeStub name = proc name $ \ _ -> body $ retVoid
 
---  let periods = sort $ map fst $ Map.toList chanMap
+  let itimeStubConst :: String -> Def ('[ConstRef s ('Stored ITime)] ':-> ())
+      itimeStubConst name = proc name $ const $ body $ return ()
 
-  let callHandlers main_loop names = do
---        let (Just prio) = elemIndex (AST.ChanPeriod per) periods
+  let callHandlers main_loop names priority = do
         now <- call ev_now main_loop
         t_ptr <- fmap constRef $ local $ ival $
           fromIMicroseconds (castDefault $ now * 1e6 :: Sint64)
@@ -402,27 +403,36 @@ compileTowerPosixWithOpts makeEnv twr optslist = do
         attrinitReturn <- call pthread_attr_init pthreadattribute
         assert (attrinitReturn ==? 0)
 
-        comment "getting min and max priority values for the scheduling policy (SCHED_RR)"
         let policySched = sched_RR
+        
+        comment "getting min and max priority values for the scheduling policy (SCHED_RR)"
+        localPriorityRef <- local $ ival priority
+        localPriority <- deref localPriorityRef
         minPrio <- call sched_get_priority_min policySched
         maxPrio <- call sched_get_priority_max policySched
 
-        comment "setting the policy scheduling"
+        comment "asserting that the priority is in range"
+        assert(localPriority >=? minPrio)
+        assert(localPriority <=? maxPrio)
+
+        comment "setting the scheduling policy"
         attrsetschpolReturn <- call pthread_attr_setschedpolicy pthreadattribute policySched
         assert (attrsetschpolReturn ==? 0)
 
-        comment "setting the inheritsched attribute (PTHREAD_EXPLICIT_SCHED)"
+        comment "setting inherit attribute (PTHREAD_EXPLICIT_SCHED)"
         attrsetinheritReturn <- call pthread_attr_setinheritsched pthreadattribute pthread_EXPLICIT_SCHED
         assert (attrsetinheritReturn ==? 0)
 
+        comment "getting scheduling param, modifying priority and setting it back"
+        (schedparam::Ref ('Stack s1) ('Struct "sched_param")) <- local izero
+        retGetSchedParam <- call pthread_attr_getschedparam pthreadattribute schedparam
+        assert(retGetSchedParam ==? 0)
 
+        call_ ivory_sched_param_priority schedparam localPriority
 
+        retSetSchedParam <- call pthread_attr_setschedparam pthreadattribute schedparam
+        assert(retSetSchedParam ==? 0)
 
-
-        comment "allocating the sched_param struct and initializing"
-        schedparam <- local izero
-        retGetSchedparam <- call pthread_attr_getschedparam pthreadattribute schedparam
-        assert(retGetSchedparam ==? 0)
 
         comment "allocating pthread_t"
         pthreads <- mapM (\_ -> local (inewtype)) names
@@ -440,13 +450,12 @@ compileTowerPosixWithOpts makeEnv twr optslist = do
           pthreadJoinReturn <- call pthread_join curthr (ptrToRef nullPtr)
           assert (pthreadJoinReturn ==? 0)
 
-        --(forM_ names $ \ name -> call_ (itimeStub name) t_ptr)
         comment "destroying attribute"
         attrdestroyReturn <- call pthread_attr_destroy pthreadattribute
         assert (attrdestroyReturn ==? 0)
 
   let signalChannels = Map.fromAscList
-        [ (AST.signal_name s, xs)
+        [ (AST.signal_name s, (s,xs))
         | (AST.ChanSignal s, xs) <- Map.toAscList chanMap
         ]
 
@@ -456,12 +465,16 @@ compileTowerPosixWithOpts makeEnv twr optslist = do
   let periodicHandlers = do
         (AST.ChanPeriod p, names) <- Map.toList chanMap
 
+        let priorityordering = reverse (sort (AST.towerThreads ast))
+        let Just idx = elemIndex (AST.PeriodThread p) priorityordering
+        let priority = fromIntegral (idx + 1)
+
         let cbname = "elapsed_" ++ prettyTime (AST.period_dt p) ++
               if toMicroseconds (AST.period_phase p) == 0
               then ""
               else "_phase_" ++ prettyTime (AST.period_phase p)
 
-        return (p, proc cbname $ \ l _ _ -> body $ callHandlers l names)
+        return (p, proc cbname $ \ l _ _ -> body $ callHandlers l names priority)
 
   let entryProc = proc "main" $ body $ do
         main_loop <- call ev_default_loop 0
@@ -482,7 +495,9 @@ compileTowerPosixWithOpts makeEnv twr optslist = do
 
         comment "Initializing signals"
         signalcode_init sigs
-        maybe (return ()) (callHandlers main_loop) $ Map.lookup (AST.ChanInit AST.Init) chanMap
+        now <- call ev_now main_loop
+        t_ptr <- fmap constRef $ local $ ival $ fromIMicroseconds (castDefault $ now * 1e6 :: Sint64)
+        maybe (return ()) (\x -> forM_ x $ \ n -> call_ (itimeStubConst n) t_ptr) $ Map.lookup (AST.ChanInit AST.Init) chanMap
 
         comment "Starting the main loop"
         call_ ev_run main_loop 0
@@ -494,13 +509,16 @@ compileTowerPosixWithOpts makeEnv twr optslist = do
         uses_libpthread
         incl entryProc
         private $ do
-          forM_ signalHandlers $ \ (handlers, code) -> unGeneratedSignal code $ do
+          forM_ signalHandlers $ \ ((sig, handlers), code) -> unGeneratedSignal code $ do
+            let priorityordering = reverse (sort (AST.towerThreads ast))
+            let Just idx = elemIndex (AST.SignalThread sig) priorityordering
+            let priority = fromIntegral (idx + 1)
             main_loop <- call ev_default_loop 0
-            callHandlers main_loop handlers
+            callHandlers main_loop handlers priority
           mapM_ (incl . snd) periodicHandlers
 
   let mods = initModule : concat monitorModules ++ dependencies_modules deps
-  let artifacts = makefile mods : dependencies_artifacts deps
+  let artifacts = makefile mods : pthread_artifacts ++ dependencies_artifacts deps
 
   runCompiler mods artifacts copts
 

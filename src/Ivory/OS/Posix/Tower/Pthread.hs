@@ -8,13 +8,17 @@ module Ivory.OS.Posix.Tower.Pthread where
 
 import Ivory.Language
 import Ivory.Language.Type
+import Ivory.Artifact
+import qualified Paths_ivory_tower_posix
 
 pthread_header :: String
 pthread_header = "pthread.h"
 
-
 sched_header :: String
 sched_header = "sched.h"
+
+ivory_sched_header :: String
+ivory_sched_header = "ivory_sched.h"
 
 -------------
 -- TYPES FOR 32 BITS
@@ -33,6 +37,7 @@ instance IvoryType VoidType where
 
 [ivory|
 abstract struct sched_param "sched.h"
+abstract struct sched_attr "sched.h"
 abstract struct timespec "time.h"
 |]
 
@@ -425,12 +430,19 @@ pthread_testcancel = importProc "pthread_testcancel" pthread_header
 
 
 
-
 sched_get_priority_max :: Def ('[CInt] ':-> (CInt))
 sched_get_priority_max = importProc "sched_get_priority_max" sched_header
 
 sched_get_priority_min :: Def ('[CInt] ':-> (CInt))
 sched_get_priority_min = importProc "sched_get_priority_min" sched_header
+
+
+ivory_sched_param_priority :: Def ('[Ref s ('Struct "sched_param"), CInt] ':-> ())
+ivory_sched_param_priority = importProc "ivory_sched_param_priority" ivory_sched_header
+
+pthread_artifacts :: [Located Artifact]
+pthread_artifacts =
+  [Incl $ artifactCabalFile Paths_ivory_tower_posix.getDataDir "support/ivory_sched.h"]
 
 uses_libpthread :: ModuleDef
 uses_libpthread = do
@@ -558,3 +570,5 @@ uses_libpthread = do
 
   incl sched_get_priority_min
   incl sched_get_priority_max
+
+  incl ivory_sched_param_priority

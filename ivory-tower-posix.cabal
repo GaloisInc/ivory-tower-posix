@@ -7,6 +7,7 @@ license-file:        LICENSE
 author:              Jamey Sharp
 maintainer:          jamey@galois.com
 copyright:           (c) 2015 Galois, Inc.
+data-files:          support/ivory_sched.h
 category:            Language
 build-type:          Simple
 cabal-version:       >=1.10
@@ -19,7 +20,8 @@ library
                        Ivory.OS.Posix.Tower.Lib.WiringPi
   other-modules:       Ivory.OS.Posix.Tower.EventLoop,
                        Ivory.OS.Posix.Tower.Pthread,
-                       Ivory.OS.Posix.Tower.Monitor
+                       Ivory.OS.Posix.Tower.Monitor,
+                       Paths_ivory_tower_posix
   build-depends:       base >=4.7 && <5,
                        base-compat >= 0.6,
                        containers,
