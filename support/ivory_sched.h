@@ -20,7 +20,7 @@ extern "C" {
 /* DEFINING PTHREAD_PRIO_INHERIT in case of not defined */
 #ifndef PTHREAD_PRIO_INHERIT
 #ifndef PTHREAD_PRIO_NONE
-#error "Your pthread has no PTHREAD_PRIO_NONE"
+#define PTHREAD_PRIO_NONE 0
 #else
 #define PTHREAD_PRIO_INHERIT PTHREAD_PRIO_NONE
 #endif
