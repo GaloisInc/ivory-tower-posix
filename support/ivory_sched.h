@@ -10,11 +10,21 @@
 #define __SMACCMPILOT_IVORY_SCHED_H__
 
 #include <sched.h>
+#include <pthread.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
+
+/* DEFINING PTHREAD_PRIO_INHERIT in case of not defined */
+#ifndef PTHREAD_PRIO_INHERIT
+#ifndef PTHREAD_PRIO_NONE
+#error "Your pthread has no PTHREAD_PRIO_NONE"
+#else
+#define PTHREAD_PRIO_INHERIT PTHREAD_PRIO_NONE
+#endif
+#endif
 
 static inline void ivory_sched_param_priority(struct sched_param* attr, int value)
 {
