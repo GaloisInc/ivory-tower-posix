@@ -17,8 +17,8 @@ extern "C" {
 #endif
 
 
-/* DEFINING PTHREAD_PRIO_INHERIT in case of not defined */
-#ifndef PTHREAD_PRIO_INHERIT
+/* DEFINING PTHREAD_PRIO_INHERIT if working in TRAVIS */
+#ifdef TRAVIS_BUILDING
 #define PTHREAD_PRIO_INHERIT 0
 #endif
 

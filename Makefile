@@ -6,6 +6,7 @@ test: test-handlers-gen
 
 %-gen: default
 	stack exec -- $@ --src-dir=$* --const-fold
+	echo "CFLAGS = -Wall -std=gnu99 -O2 -g -I. -DIVORY_TEST -DTRAVIS_BUILDING" > $*/make.mk
 	make -C $*
 
 %-clean:
