@@ -495,9 +495,11 @@ compileTowerPosixWithOpts makeEnv twr optslist = do
 
         comment "Initializing signals"
         signalcode_init sigs
-        now <- call ev_now main_loop
-        t_ptr <- fmap constRef $ local $ ival $ fromIMicroseconds (castDefault $ now * 1e6 :: Sint64)
-        maybe (return ()) (\x -> forM_ x $ \ n -> call_ (itimeStubConst n) t_ptr) $ Map.lookup (AST.ChanInit AST.Init) chanMap
+        maybe (return ()) (\x -> do 
+          now <- call ev_now main_loop
+          t_ptr <- fmap constRef $ local $ ival $ fromIMicroseconds (castDefault $ now * 1e6 :: Sint64) 
+          forM_ x $ \ n -> call_ (itimeStubConst n) t_ptr
+          ) $ Map.lookup (AST.ChanInit AST.Init) chanMap
 
         comment "Starting the main loop"
         call_ ev_run main_loop 0

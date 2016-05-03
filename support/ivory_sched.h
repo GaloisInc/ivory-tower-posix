@@ -19,7 +19,9 @@ extern "C" {
 
 /* DEFINING PTHREAD_PRIO_INHERIT if working in TRAVIS */
 #ifdef TRAVIS_BUILDING
+#ifndef PTHREAD_PRIO_INHERIT
 #define PTHREAD_PRIO_INHERIT 0
+#endif
 #endif
 
 static inline void ivory_sched_param_priority(struct sched_param* attr, int value)
