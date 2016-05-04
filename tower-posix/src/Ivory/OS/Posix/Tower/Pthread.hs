@@ -9,7 +9,7 @@ module Ivory.OS.Posix.Tower.Pthread where
 import Ivory.Language
 import Ivory.Language.Type
 import Ivory.Artifact
-import qualified Paths_ivory_tower_posix
+import qualified Paths_tower_posix
 
 pthread_header :: String
 pthread_header = "pthread.h"
@@ -442,7 +442,7 @@ ivory_sched_param_priority = importProc "ivory_sched_param_priority" ivory_sched
 
 pthread_artifacts :: [Located Artifact]
 pthread_artifacts =
-  [Incl $ artifactCabalFile Paths_ivory_tower_posix.getDataDir "support/ivory_sched.h"]
+  [Incl $ artifactCabalFile Paths_tower_posix.getDataDir "support/ivory_sched.h"]
 
 uses_libpthread :: ModuleDef
 uses_libpthread = do
