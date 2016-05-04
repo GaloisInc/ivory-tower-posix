@@ -1,0 +1,38 @@
+name:                tower-posix
+version:             0.1.0.0
+-- synopsis:            
+-- description:         
+license:             BSD3
+license-file:        LICENSE
+author:              Jamey Sharp
+maintainer:          jamey@galois.com
+copyright:           (c) 2015 Galois, Inc.
+data-files:          support/ivory_sched.h
+category:            Language
+build-type:          Simple
+cabal-version:       >=1.10
+
+library
+  exposed-modules:     Ivory.OS.Posix.Tower,
+                       Ivory.OS.Posix.Tower.IO,
+                       Ivory.OS.Posix.Tower.Serial,
+                       Ivory.OS.Posix.Tower.Signal,
+                       Ivory.OS.Posix.Tower.Lib.WiringPi
+  other-modules:       Ivory.OS.Posix.Tower.EventLoop,
+                       Ivory.OS.Posix.Tower.Pthread,
+                       Ivory.OS.Posix.Tower.Monitor,
+                       Paths_tower_posix
+  build-depends:       base >=4.7 && <5,
+                       base-compat >= 0.6,
+                       containers,
+                       semigroups,
+                       monadLib,
+                       ivory,
+                       ivory-artifact,
+                       ivory-backend-c,
+                       ivory-stdlib,
+                       tower,
+                       tower-hal
+  hs-source-dirs:      src
+  ghc-options:         -Wall
+  default-language:    Haskell2010

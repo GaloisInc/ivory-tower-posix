@@ -1,4 +1,4 @@
-sudo: false
+sudo: true
 language: c
 
 cache:
@@ -24,12 +24,14 @@ before_install:
   - export PATH=$HOME/.local/bin:/opt/ghc/$GHCVER/bin:$PATH
   - ghc --version
   - stack --version
+  - git clone git://git.drogon.net/wiringPi
+  - (cd wiringPi; ./build) || true
 install:
   - git clone https://github.com/galoisinc/ivory
-  - (cd ivory; git checkout $TRAVIS_BRANCH)
+  - (cd ivory; git checkout $TRAVIS_BRANCH) || true
   - export IVORY_REPO=$PWD/ivory
   - git clone https://github.com/galoisinc/tower
-  - (cd tower; git checkout $TRAVIS_BRANCH)
+  - (cd tower; git checkout $TRAVIS_BRANCH) || true
   - export TOWER_REPO=$PWD/tower
   # tweak the relative paths in stack.yaml
   - sed -i "s;\.\./;$PWD/;g" $STACK_YAML

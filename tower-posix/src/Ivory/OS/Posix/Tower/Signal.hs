@@ -18,7 +18,7 @@ instance Signalable Watcher where
   signalName = watcherName
   signalHandler = watcherDefs
   signalInit = watcherInit
-  signalNumber = error "no signal numbers defined for Watcher"
+  signalNumber _ = 42424242
 
 data IOEventMask
   = ReadOnly
