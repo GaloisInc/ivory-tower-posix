@@ -5,7 +5,8 @@ resolver: ghc-8.0.1
 
 # Local packages, usually specified by relative directory name
 packages:
-- '.'
+- tower-posix
+- tower-posix-tests
 - location: ../ivory
   extra-dep: true
   subdirs:

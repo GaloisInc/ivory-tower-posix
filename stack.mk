@@ -1,7 +1,7 @@
 default:
-	stack build .
+	stack build
 test:
-	stack build . --test
+	stack build --test
 
 clean:
 
