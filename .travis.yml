@@ -33,6 +33,7 @@ install:
   - git clone https://github.com/galoisinc/tower
   - (cd tower; git checkout $TRAVIS_BRANCH) || true
   - export TOWER_REPO=$PWD/tower
+  - export STACK_YAML=$PWD/$STACK_YAML
   # tweak the relative paths in stack.yaml
   - sed -i "s;\.\./;$PWD/;g" $STACK_YAML
 script:
