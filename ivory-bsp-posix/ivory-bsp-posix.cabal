@@ -4,7 +4,7 @@ version:             0.1.0.0
 -- description:
 license:             BSD3
 author:              Galois, Inc.
-maintainer:          pat@galois.com
+maintainer:          smaccm@galois.com
 -- copyright:
 -- category:
 build-type:          Simple
