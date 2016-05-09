@@ -4,7 +4,9 @@
 ## About
 
 This repository contains both a support library and a [Tower][] backend for
-using the [Ivory][]/[Tower][] languages on a POSIX based system.
+using the [Ivory][]/[Tower][] languages on a POSIX based system. It also 
+features some functions for a Raspberry Pi (tested on a Raspberry Pi 2 B +)
+using the wiringPi library.
 
 ## Dependencies
 

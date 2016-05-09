@@ -5,7 +5,9 @@ resolver: lts-5.3
 
 # Local packages, usually specified by relative directory name
 packages:
-- '.'
+- tower-posix/
+- tower-posix-tests/
+- ivory-bsp-posix/
 - location: ../ivory
   extra-dep: true
   subdirs:
