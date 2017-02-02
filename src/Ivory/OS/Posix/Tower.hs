@@ -1,5 +1,5 @@
 {-# LANGUAGE DataKinds #-}
-{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE Rank2Types #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
 
@@ -153,6 +153,8 @@ instance TowerBackend PosixBackend where
 
   towerImpl _ _ monitors = PosixOutput monitors
 
+
+
 compileTowerPosix :: (TOpts -> IO e) -> Tower e () -> IO ()
 compileTowerPosix makeEnv twr = do
   (copts, topts) <- towerGetOpts
@@ -165,13 +167,15 @@ compileTowerPosix makeEnv twr = do
 
   let chanMap = Map.unionsWith (++) chanMaps
 
-  let itimeStub :: String -> Def ('[ConstRef s ('Stored ITime)] ':-> ())
-      itimeStub name = proc name $ const $ body $ return ()
-
-  let callHandlers main_loop names = do
+  let callHandlers
+        :: (GetAlloc eff ~ 'Scope s1)
+        => Ref s2 ('Struct "ev_loop") -> [String] -> Ivory eff ()
+      callHandlers main_loop names = do
         now <- call ev_now main_loop
         t_ptr <- fmap constRef $ local $ ival $
           fromIMicroseconds (castDefault $ now * 1e6 :: Sint64)
+        let itimeStub :: String -> Def ('[ConstRef s ('Stored ITime)] ':-> ())
+            itimeStub name = proc name $ const $ body $ return ()
         forM_ names $ \ name -> call_ (itimeStub name) t_ptr
 
   let signalChannels = Map.fromAscList
