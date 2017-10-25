@@ -4,7 +4,7 @@
 {-# LANGUAGE TypeOperators #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
-module Ivory.OS.Posix.Tower.Serial (serialIO) where
+module Ivory.OS.Posix.Tower.Serial (serialIO, serialIOFD, serialIOFDs) where
 
 import Ivory.Language
 import Ivory.Tower
@@ -44,13 +44,26 @@ unix_write = importProc "write" "unistd.h"
 serialIO :: IvoryString s
          => Tower e ( BackpressureTransmit s ('Stored IBool)
                     , ChanOutput ('Stored Uint8))
-serialIO = do
-  reader <- readFD "serial_in" stdin
+serialIO = serialIOFDs stdin stdout
+
+serialIOFD :: IvoryString s
+            => FD
+            -> Tower e ( BackpressureTransmit s ('Stored IBool)
+                       , ChanOutput ('Stored Uint8))
+serialIOFD fd = serialIOFDs fd fd
+
+serialIOFDs :: IvoryString s
+            => FD
+            -> FD
+            -> Tower e ( BackpressureTransmit s ('Stored IBool)
+                       , ChanOutput ('Stored Uint8))
+serialIOFDs fdin fdout = do
+  reader <- readFD "serial_in" fdin
 
   (newSource, new) <- channel
   (status, statusSink) <- channel
 
-  watchIO "serial_out" stdout WriteOnly $ \ ready watcher -> do
+  watchIO "serial_out" fdout WriteOnly $ \ ready watcher -> do
     monitorModuleDef $ do
       uses_libev
       incl tcgetattr
@@ -62,15 +75,16 @@ serialIO = do
       inclSym b115200
       inclSym tcsaNow
       inclSym stdin
+      inclSym stdout
 
     handler systemInit "serial_setup" $ do
       callback $ const $ do
         termset <- local izero
-        call_ tcgetattr stdin termset
+        call_ tcgetattr fdin termset
         call_ cfmakeraw termset
         call_ cfsetispeed termset b115200
         call_ cfsetospeed termset b115200
-        call_ tcsetattr stdin tcsaNow $ constRef termset
+        call_ tcsetattr fdin tcsaNow $ constRef termset
 
         default_loop <- call ev_default_loop 0
         call_ ev_io_stop default_loop watcher
@@ -89,7 +103,7 @@ serialIO = do
       callback $ const $ do
         let buf = constRef $ toCArray $ str ~> stringDataL
         len <- fmap signCast $ deref $ str ~> stringLengthL
-        written <- call unix_write stdout buf len
+        written <- call unix_write fdout buf len
         -- TODO: handle partial writes
         assert (signCast written ==? len)
 

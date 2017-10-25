@@ -15,6 +15,14 @@ stdin = extern "STDIN_FILENO" "unistd.h"
 stdout = extern "STDOUT_FILENO" "unistd.h"
 stderr = extern "STDERR_FILENO" "unistd.h"
 
+open :: Def ('[IString, Uint32] ':-> FD)
+open = importProc "open" "fcntl.h"
+
+o_RDONLY, o_WRONLY, o_RDWR :: Uint32
+o_RDONLY = extern "O_RDONLY" "fcntl.h"
+o_WRONLY = extern "O_WRONLY" "fcntl.h"
+o_RDWR = extern "O_RDWR" "fcntl.h"
+
 readFD :: String -> FD -> Tower e (ChanOutput ('Stored Uint8))
 readFD name fd = do
   (sink, source) <- channel
@@ -45,3 +53,26 @@ readFD name fd = do
           )
 
   return source
+
+-- open additional filedescriptors in sequence specifed by paths
+--
+-- returns list of filedescriptors in the order as specified paths
+--
+-- allows opening additional serialIOs with
+-- [fd, _] <- getFDs ["/dev/ttyUSB0"]
+-- (ostream, istream) <- serialIOFD fd
+--
+getFDs :: [IString] -> Tower e ([Sint32])
+getFDs paths = do
+  flip mapM_ (zip paths [fdbase .. ]) $ \(path, expect_fd) -> monitor "fdmon" $ do
+    monitorModuleDef $ do
+      incl open
+      inclSym o_RDWR
+    handler systemInit "fdopen" $ do
+      callback $ const $ do
+        fd <- call open path o_RDWR
+        assert $ fd ==? (fromIntegral expect_fd :: Sint32)
+
+  return $ map fromIntegral [fdbase .. fdbase + length paths]
+  where
+  fdbase = 5

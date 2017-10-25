@@ -58,8 +58,6 @@ watchIO name fd eventmask mon = do
     uses_libev
     defMemArea global_watcher
     incl start
-    -- FIXME: fd might not be an `extern` expression
-    inclSym fd
 
   defs :: (forall s. Ivory (AllocEffects s) ()) -> ModuleDef
   defs action = do
