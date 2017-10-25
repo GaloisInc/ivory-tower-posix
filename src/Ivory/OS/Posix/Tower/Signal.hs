@@ -5,6 +5,8 @@
 module Ivory.OS.Posix.Tower.Signal where
 
 import Ivory.Language
+import Ivory.Language.Type    (unwrapExpr)
+import qualified Ivory.Language.Syntax as I
 import Ivory.Tower
 import Ivory.OS.Posix.Tower.EventLoop
 
@@ -58,6 +60,9 @@ watchIO name fd eventmask mon = do
     uses_libev
     defMemArea global_watcher
     incl start
+    case unwrapExpr fd of
+      (I.ExpLit _) -> return ()
+      _ -> inclSym fd
 
   defs :: (forall s. Ivory (AllocEffects s) ()) -> ModuleDef
   defs action = do
